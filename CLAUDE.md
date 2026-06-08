@@ -36,8 +36,10 @@ cd backend
 .\mvnw.cmd spring-boot:run          # run the app
 .\mvnw.cmd test                     # run all tests
 .\mvnw.cmd test "-Dtest=ClassName#methodName"   # run a single test
-.\mvnw.cmd verify                   # full build incl. Spring Modulith verification
+.\mvnw.cmd verify                   # full build incl. Spring Modulith + ktlint check
 .\mvnw.cmd package                  # build jar
+.\mvnw.cmd ktlint:check             # lint Kotlin only
+.\mvnw.cmd ktlint:format            # auto-fix lint violations
 ```
 
 Tests use **Testcontainers** (PostgreSQL) via `@ServiceConnection`
@@ -50,7 +52,9 @@ a Docker daemon must be running for the test suite.
   **fails the build** on encapsulation breaks or cyclic dependencies — keep cross-module calls
   going through each module's public API (top-level package).
 - Cross-cutting interactions use **Spring Application Events**, not direct service calls.
-- Lint with `ktlint`.
+- Lint with **ktlint** (gantsign maven plugin); the `check` goal is bound to the `verify` phase.
+  ktlint enforces 4-space indentation (no tabs) — note Spring's generated scaffolding uses tabs,
+  so run `ktlint:format` on newly generated files.
 
 The Kotlin compiler runs with `all-open`/`no-arg` plugins for JPA `@Entity`/`@Embeddable`/
 `@MappedSuperclass` and `-Xjsr305=strict` (JSR-305 nullability is strictly enforced).
