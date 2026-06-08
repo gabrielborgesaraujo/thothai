@@ -9,3 +9,17 @@ class ResourceNotFoundException(
 class BusinessRuleException(
     message: String,
 ) : RuntimeException(message)
+
+/** Entrada inválida na requisição (mapeado para HTTP 400). */
+class InvalidRequestException(
+    message: String,
+) : RuntimeException(message)
+
+/**
+ * Falha em integração síncrona com serviço externo — storage, busca, LLM (mapeado para HTTP 503).
+ * Suporta o tratamento de tolerância a falhas de terceiros (RNF02).
+ */
+class ExternalServiceException(
+    message: String,
+    cause: Throwable? = null,
+) : RuntimeException(message, cause)

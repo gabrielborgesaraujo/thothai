@@ -18,6 +18,11 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  servlet:
+    multipart:
+      # Upload de imagens incorporadas (RF03); abaixo do limite de 25 MB do gateway nginx.
+      max-file-size: 10MB
+      max-request-size: 12MB
 
 server:
   port: ${SERVER_PORT:8080}

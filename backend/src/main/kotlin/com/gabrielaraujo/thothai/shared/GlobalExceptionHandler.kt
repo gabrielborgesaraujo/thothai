@@ -5,6 +5,7 @@ import org.springframework.http.ProblemDetail
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.multipart.MaxUploadSizeExceededException
 
 /**
  * Tradução centralizada de exceções para respostas [ProblemDetail] (RFC 7807),
@@ -19,6 +20,21 @@ class GlobalExceptionHandler {
     @ExceptionHandler(BusinessRuleException::class)
     fun handleConflict(ex: BusinessRuleException): ProblemDetail =
         ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.message ?: "Conflito de estado")
+
+    @ExceptionHandler(InvalidRequestException::class)
+    fun handleInvalidRequest(ex: InvalidRequestException): ProblemDetail =
+        ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.message ?: "Requisição inválida")
+
+    @ExceptionHandler(ExternalServiceException::class)
+    fun handleExternalService(ex: ExternalServiceException): ProblemDetail =
+        ProblemDetail.forStatusAndDetail(
+            HttpStatus.SERVICE_UNAVAILABLE,
+            ex.message ?: "Serviço externo indisponível",
+        )
+
+    @ExceptionHandler(MaxUploadSizeExceededException::class)
+    fun handleMaxUploadSize(ex: MaxUploadSizeExceededException): ProblemDetail =
+        ProblemDetail.forStatusAndDetail(HttpStatus.PAYLOAD_TOO_LARGE, "Arquivo excede o tamanho máximo permitido")
 
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun handleValidation(ex: MethodArgumentNotValidException): ProblemDetail {
