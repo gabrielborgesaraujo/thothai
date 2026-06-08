@@ -1,3 +1,67 @@
 spring:
   application:
     name: thothai
+  profiles:
+    default: local
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/thothai}
+    username: ${DB_USERNAME:thothai}
+    password: ${DB_PASSWORD:thothai}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        same-site: lax
+        secure: ${SESSION_COOKIE_SECURE:false}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+# Configurações específicas da aplicação ThothAI
+thothai:
+  cors:
+    # Origem do frontend autorizada (RNF — painel admin)
+    allowed-origins: ${FRONTEND_ORIGIN:http://localhost:4200}
+  admin:
+    # Seed do administrador único (RF01)
+    username: ${ADMIN_USERNAME:admin}
+    password: ${ADMIN_PASSWORD:change-me}
+  storage:
+    # MinIO / S3 (RNF01)
+    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+    public-url: ${MINIO_PUBLIC_URL:http://localhost:9000}
+    access-key: ${MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${MINIO_SECRET_KEY:minioadmin}
+    bucket: ${MINIO_BUCKET:thothai-media}
+  ai:
+    # Provider de IA abstraído (RF04/RF05); default Claude
+    provider: ${AI_PROVIDER:claude}
+    timeout: ${AI_TIMEOUT:30s}
+    claude:
+      api-key: ${ANTHROPIC_API_KEY:}
+      model: ${ANTHROPIC_MODEL:claude-opus-4-8}
+      base-url: ${ANTHROPIC_BASE_URL:https://api.anthropic.com}
+  search:
+    # Busca viva abstraída (RF04); default Tavily
+    provider: ${SEARCH_PROVIDER:tavily}
+    timeout: ${SEARCH_TIMEOUT:15s}
+    tavily:
+      api-key: ${TAVILY_API_KEY:}
+      base-url: ${TAVILY_BASE_URL:https://api.tavily.com}
