@@ -44,7 +44,17 @@ cd backend
 
 Tests use **Testcontainers** (PostgreSQL) via `@ServiceConnection`
 ([TestcontainersConfiguration.kt](backend/src/test/kotlin/com/gabrielaraujo/thothai/TestcontainersConfiguration.kt)) —
-a Docker daemon must be running for the test suite.
+a Docker daemon must be running for the suite. `ModulithArchitectureTests` (module verification)
+is the exception — it is pure static analysis and needs no Docker, so to check architecture without
+Docker run `.\mvnw.cmd "-Dtest=ModulithArchitectureTests" test`.
+
+### Build environment on this dev machine (Windows, corporate network)
+- **`JAVA_HOME` is misconfigured** in the system env — it points to `...\jdk-22.0.1\bin` but Maven
+  needs the JDK **root**. Set `$env:JAVA_HOME = "C:\JAVA JDKS\jdk-22.0.1"` before invoking `mvnw.cmd`.
+- A **TLS-intercepting proxy** breaks Maven Central downloads (`PKIX path building failed`). The
+  corporate root CA lives in the Windows cert store, so build with
+  `$env:MAVEN_OPTS = "-Djavax.net.ssl.trustStoreType=Windows-ROOT"`. Not committed to `.mvn/jvm.config`
+  because `Windows-ROOT` would break non-Windows CI.
 
 ### Spring Modulith architecture (enforced at build time)
 - Organize code by **business domain** (e.g. `content`, `identity`), not by technical layer at the root.
@@ -90,3 +100,23 @@ to all frontend work.
 Media is stored in **MinIO** (S3-compatible), not the database (RNF01). Synchronous calls to
 external search/LLM APIs must have timeouts and exception handling so a third-party failure does
 not take down the admin panel (RNF02). The system is packaged via Docker / Docker Compose.
+
+## Running the full stack (Docker)
+
+[docker-compose.yml](docker-compose.yml) brings up everything: `postgres`, `minio` (+ bucket init),
+`backend`, `frontend` (SSR), and an nginx `gateway`. The gateway is the **single browser origin**
+([infra/nginx.conf](infra/nginx.conf)): it serves the Angular SSR app at `/` and proxies `/api`,
+`/swagger-ui`, `/actuator` to the backend — so the session cookie is same-origin (no CORS/CSRF pain).
+
+```powershell
+copy .env.example .env          # adjust secrets/keys as needed
+docker compose up -d --build    # build + start the whole app
+```
+
+- App: `http://localhost:8088` (host port is `PUBLIC_PORT`, default **8088** — port 80 is reserved
+  by Windows http.sys). Admin login at `/admin/login` (seeded `ADMIN_USERNAME`/`ADMIN_PASSWORD`).
+- MinIO console: `http://localhost:9001`. Swagger: `http://localhost:8088/swagger-ui.html`.
+- The browser only ever talks to the gateway; the SSR server reaches the backend internally via
+  `BACKEND_ORIGIN=http://backend:8080`. Media `public-url` is `http://localhost:9000` (browser-reachable).
+- The frontend image uses `npm install` (not `npm ci`) because the Windows-generated `package-lock.json`
+  omits some platform-specific optional deps (`@emnapi/*`).
