@@ -7,7 +7,16 @@ export const publicRoutes: Routes = [
     component: PublicLayout,
     children: [
       { path: '', loadComponent: () => import('./home/home').then((m) => m.Home) },
-      // Listagem e leitura de publicações são adicionadas na EPIC 3.
+      // Portal público de leitura (RF06): listagem cronológica e página de leitura por slug.
+      {
+        path: 'posts',
+        loadComponent: () => import('./posts/post-list/post-list').then((m) => m.PublicPostList),
+      },
+      {
+        path: 'posts/:slug',
+        loadComponent: () =>
+          import('./posts/post-detail/post-detail').then((m) => m.PublicPostDetail),
+      },
     ],
   },
 ];

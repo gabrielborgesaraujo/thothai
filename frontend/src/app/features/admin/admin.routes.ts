@@ -11,7 +11,20 @@ export const adminRoutes: Routes = [
     canActivate: [authGuard],
     children: [
       { path: '', loadComponent: () => import('./dashboard/dashboard').then((m) => m.Dashboard) },
-      // Gerenciador de postagens (EPIC 2) e gestão de perfil (EPIC 6) entram aqui.
+      // Gerenciador de postagens (RF02). 'new' antes de ':id' para não ser capturado pelo param.
+      {
+        path: 'posts',
+        loadComponent: () => import('./posts/post-list/post-list').then((m) => m.PostList),
+      },
+      {
+        path: 'posts/new',
+        loadComponent: () => import('./posts/post-form/post-form').then((m) => m.PostForm),
+      },
+      {
+        path: 'posts/:id',
+        loadComponent: () => import('./posts/post-form/post-form').then((m) => m.PostForm),
+      },
+      // Gestão de perfil (RF08) entra aqui.
     ],
   },
 ];
