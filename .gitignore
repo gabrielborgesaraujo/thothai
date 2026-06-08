@@ -1,0 +1,11 @@
+# Variáveis de ambiente locais
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.iml
+.vscode/
