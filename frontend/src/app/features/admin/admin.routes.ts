@@ -29,6 +29,11 @@ export const adminRoutes: Routes = [
         path: 'media',
         loadComponent: () => import('./media/media-list').then((m) => m.MediaList),
       },
+      // Conta do admin (troca de senha — RF01).
+      {
+        path: 'account',
+        loadComponent: () => import('./account/account').then((m) => m.Account),
+      },
       // Cartão de identidade (RF07).
       {
         path: 'profile',

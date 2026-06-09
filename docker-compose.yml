@@ -73,6 +73,9 @@ services:
       # Admin único (RF01).
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me}
+      # Sessão (RF01) — secure=true atrás de HTTPS.
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      SESSION_TIMEOUT: ${SESSION_TIMEOUT:-30m}
       # Origem do navegador = gateway (origem única).
       FRONTEND_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:8088}
       # Provedores externos (RF04/RF05) — opcionais até a EPIC 5.

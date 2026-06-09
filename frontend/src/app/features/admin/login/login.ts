@@ -75,8 +75,12 @@ export class Login {
     const { username, password } = this.form.getRawValue();
     this.auth.login(username, password).subscribe({
       next: () => this.router.navigate(['/admin']),
-      error: () => {
-        this.error.set('Usuário ou senha inválidos.');
+      error: (err: { status?: number }) => {
+        this.error.set(
+          err?.status === 429
+            ? 'Muitas tentativas. Tente novamente em alguns minutos.'
+            : 'Usuário ou senha inválidos.',
+        );
         this.loading.set(false);
       },
     });

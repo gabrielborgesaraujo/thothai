@@ -25,6 +25,11 @@ export class AuthService {
     return this.api.post<void>('/auth/logout').pipe(tap(() => this.currentUser.set(null)));
   }
 
+  /** Troca a senha do admin (RF01). */
+  changePassword(currentPassword: string, newPassword: string): Observable<void> {
+    return this.api.post<void>('/admin/account/password', { currentPassword, newPassword });
+  }
+
   /** Confirma a sessão no servidor; usado pelo guard. Retorna null se não autenticado. */
   fetchSession(): Observable<AuthUser | null> {
     return this.api.get<AuthUser>('/auth/me').pipe(

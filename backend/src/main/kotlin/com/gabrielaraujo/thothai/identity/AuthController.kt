@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ProblemDetail
 import org.springframework.security.authentication.AuthenticationManager
 import org.springframework.security.authentication.BadCredentialsException
+import org.springframework.security.authentication.LockedException
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.Authentication
 import org.springframework.security.core.context.SecurityContextHolder
@@ -24,9 +25,10 @@ import org.springframework.web.bind.annotation.RestController
  */
 @RestController
 @RequestMapping("/api/auth")
-class AuthController(
+internal class AuthController(
     private val authenticationManager: AuthenticationManager,
     private val securityContextRepository: SecurityContextRepository,
+    private val loginAttempts: LoginAttemptService,
 ) {
     private val securityContextHolderStrategy = SecurityContextHolder.getContextHolderStrategy()
 
@@ -36,10 +38,19 @@ class AuthController(
         request: HttpServletRequest,
         response: HttpServletResponse,
     ): UserResponse {
+        if (loginAttempts.isLocked(body.username)) {
+            throw LockedException("Conta temporariamente bloqueada")
+        }
         val authentication =
-            authenticationManager.authenticate(
-                UsernamePasswordAuthenticationToken.unauthenticated(body.username, body.password),
-            )
+            try {
+                authenticationManager.authenticate(
+                    UsernamePasswordAuthenticationToken.unauthenticated(body.username, body.password),
+                )
+            } catch (ex: BadCredentialsException) {
+                loginAttempts.recordFailure(body.username)
+                throw ex
+            }
+        loginAttempts.reset(body.username)
         val context = securityContextHolderStrategy.createEmptyContext()
         context.authentication = authentication
         securityContextHolderStrategy.context = context
@@ -53,4 +64,11 @@ class AuthController(
     @ExceptionHandler(BadCredentialsException::class)
     fun handleBadCredentials(ex: BadCredentialsException): ProblemDetail =
         ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, "Usuário ou senha inválidos")
+
+    @ExceptionHandler(LockedException::class)
+    fun handleLocked(ex: LockedException): ProblemDetail =
+        ProblemDetail.forStatusAndDetail(
+            HttpStatus.TOO_MANY_REQUESTS,
+            "Muitas tentativas de login. Tente novamente em alguns minutos.",
+        )
 }
