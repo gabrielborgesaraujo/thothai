@@ -53,6 +53,22 @@ internal class AssistantService(
         return ReviewResponse(parseRecommendations(raw))
     }
 
+    /** Gera uma "isca" para LinkedIn (RF04/estratégia de distribuição): gancho + CTA de volta ao portal. */
+    fun generateSnippet(
+        title: String,
+        content: String,
+    ): SnippetResponse {
+        if (title.isBlank() && content.isBlank()) {
+            throw InvalidRequestException("Informe o título ou o conteúdo da postagem")
+        }
+        val user =
+            buildString {
+                append("Título: ").append(title.trim()).append("\n\n")
+                append("Conteúdo:\n").append(content.trim())
+            }
+        return SnippetResponse(llm.complete(SNIPPET_SYSTEM, user, maxTokens = 512))
+    }
+
     private fun parseDraft(
         raw: String,
         fallbackTitle: String,
@@ -120,5 +136,10 @@ internal class AssistantService(
             "Você é um revisor técnico. Analise o texto e gere recomendações objetivas de correção " +
                 "ortográfica, gramatical e de vocabulário técnico. Responda somente com um array JSON de " +
                 "strings, cada uma uma recomendação curta, sem texto extra."
+        const val SNIPPET_SYSTEM =
+            "Você cria 'iscas de conteúdo' para o LinkedIn a partir de uma publicação técnica. Escreva um " +
+                "texto curto e envolvente em português (gancho na 1ª linha, 2 a 3 linhas de valor e um " +
+                "call-to-action convidando a ler o artigo completo no portal). Responda apenas com o texto " +
+                "do post, sem aspas nem comentários."
     }
 }

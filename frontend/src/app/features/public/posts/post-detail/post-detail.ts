@@ -1,10 +1,11 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
+import { DatePipe, DOCUMENT } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Meta, Title } from '@angular/platform-browser';
 import { PostService } from '../../../../core/content/post.service';
 import { PublicPost } from '../../../../core/content/post.models';
 import { MarkdownPipe } from '../../../../core/content/markdown.pipe';
+import { setJsonLd } from '../../../../core/seo/json-ld';
 
 /** Página de leitura de uma postagem publicada, com meta tags SEO/social (RF06 / RNF05). */
 @Component({
@@ -35,6 +36,7 @@ export class PublicPostDetail {
   private readonly route = inject(ActivatedRoute);
   private readonly title = inject(Title);
   private readonly meta = inject(Meta);
+  private readonly document = inject(DOCUMENT);
 
   protected readonly post = signal<PublicPost | null>(null);
   protected readonly notFound = signal(false);
@@ -65,5 +67,14 @@ export class PublicPostDetail {
     this.meta.updateTag({ name: 'twitter:card', content: 'summary_large_image' });
     this.meta.updateTag({ name: 'twitter:title', content: post.title });
     this.meta.updateTag({ name: 'twitter:description', content: description });
+
+    setJsonLd(this.document, 'ld-article', {
+      '@context': 'https://schema.org',
+      '@type': 'Article',
+      headline: post.title,
+      description,
+      articleSection: post.type,
+      datePublished: post.publishedAt ?? undefined,
+    });
   }
 }

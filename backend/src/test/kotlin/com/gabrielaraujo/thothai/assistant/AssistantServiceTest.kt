@@ -76,4 +76,19 @@ class AssistantServiceTest {
         val svc = service(llm = { _, _, _ -> "" })
         assertFailsWith<InvalidRequestException> { svc.review("") }
     }
+
+    @Test
+    fun `gera isca para linkedin a partir do texto do LLM`() {
+        val svc = service(llm = { _, _, _ -> "Gancho! Leia o artigo completo no portal." })
+
+        val snippet = svc.generateSnippet("Título", "corpo")
+
+        assertEquals("Gancho! Leia o artigo completo no portal.", snippet.text)
+    }
+
+    @Test
+    fun `isca sem titulo e sem conteudo e rejeitada`() {
+        val svc = service(llm = { _, _, _ -> "" })
+        assertFailsWith<InvalidRequestException> { svc.generateSnippet("  ", "  ") }
+    }
 }

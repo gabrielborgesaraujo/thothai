@@ -24,4 +24,9 @@ internal class AssistantController(
     fun review(
         @Valid @RequestBody request: ReviewRequest,
     ): ReviewResponse = assistantService.review(request.content)
+
+    @PostMapping("/snippet")
+    fun snippet(
+        @RequestBody request: SnippetRequest,
+    ): SnippetResponse = assistantService.generateSnippet(request.title, request.content)
 }

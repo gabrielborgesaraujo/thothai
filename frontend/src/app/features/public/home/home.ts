@@ -1,8 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { Meta, Title } from '@angular/platform-browser';
 import { ProfileService } from '../../../core/profile/profile.service';
 import { PortfolioService } from '../../../core/profile/portfolio.service';
 import { PortfolioEntry, Profile } from '../../../core/profile/profile.models';
+import { setJsonLd } from '../../../core/seo/json-ld';
 
 /**
  * Home pública one-page: cartão de identidade do publicador (RF07) e portfólio curricular
@@ -94,6 +96,7 @@ export class Home {
   private readonly portfolioService = inject(PortfolioService);
   private readonly title = inject(Title);
   private readonly meta = inject(Meta);
+  private readonly document = inject(DOCUMENT);
 
   protected readonly profile = signal<Profile | null>(null);
   private readonly entries = signal<PortfolioEntry[]>([]);
@@ -143,5 +146,16 @@ export class Home {
     if (profile.photoUrl) {
       this.meta.updateTag({ property: 'og:image', content: profile.photoUrl });
     }
+
+    setJsonLd(this.document, 'ld-person', {
+      '@context': 'https://schema.org',
+      '@type': 'Person',
+      name: profile.displayName,
+      jobTitle: profile.headline ?? undefined,
+      description: profile.bio ?? undefined,
+      email: profile.email ?? undefined,
+      image: profile.photoUrl ?? undefined,
+      sameAs: profile.linkedinUrl ? [profile.linkedinUrl] : undefined,
+    });
   }
 }

@@ -136,6 +136,16 @@ import { AssistantService } from '../../../../core/assistant/assistant.service';
             <mat-icon>spellcheck</mat-icon>
             Revisar com IA
           </button>
+          <button
+            matButton
+            type="button"
+            (click)="generateSnippet()"
+            [disabled]="generatingSnippet()"
+            aria-label="Gerar isca para LinkedIn"
+          >
+            <mat-icon>share</mat-icon>
+            Isca p/ LinkedIn
+          </button>
           <input #fileInput type="file" accept="image/*" hidden (change)="onFileSelected($event)" />
         </div>
 
@@ -157,6 +167,25 @@ import { AssistantService } from '../../../../core/assistant/assistant.service';
                 }
               </ul>
             }
+          </div>
+        }
+
+        @if (generatingSnippet()) {
+          <mat-progress-bar mode="indeterminate" />
+        }
+        @if (snippetError()) {
+          <p class="text-sm text-red-600" role="alert">{{ snippetError() }}</p>
+        }
+        @if (snippet(); as text) {
+          <div class="rounded border border-gray-200 p-4">
+            <div class="mb-2 flex items-center justify-between">
+              <p class="text-sm font-medium">Isca para LinkedIn</p>
+              <button matButton type="button" (click)="copySnippet()">
+                <mat-icon>content_copy</mat-icon>
+                Copiar
+              </button>
+            </div>
+            <p class="whitespace-pre-wrap text-sm text-gray-700">{{ text }}</p>
           </div>
         }
 
@@ -205,6 +234,9 @@ export class PostForm {
   protected readonly reviewing = signal(false);
   protected readonly reviewError = signal<string | null>(null);
   protected readonly recommendations = signal<string[] | null>(null);
+  protected readonly snippet = signal<string | null>(null);
+  protected readonly generatingSnippet = signal(false);
+  protected readonly snippetError = signal<string | null>(null);
 
   protected readonly form = this.fb.group({
     title: ['', Validators.required],
@@ -295,6 +327,35 @@ export class PostForm {
         this.reviewing.set(false);
       },
     });
+  }
+
+  /** Gera uma "isca" para LinkedIn a partir do título + corpo atuais (estratégia de distribuição). */
+  protected generateSnippet(): void {
+    const title = this.form.controls.title.value;
+    const body = this.form.controls.body.value;
+    if ((!title.trim() && !body.trim()) || this.generatingSnippet()) {
+      return;
+    }
+    this.generatingSnippet.set(true);
+    this.snippetError.set(null);
+    this.snippet.set(null);
+    this.assistant.generateSnippet(title, body).subscribe({
+      next: (res) => {
+        this.snippet.set(res.text);
+        this.generatingSnippet.set(false);
+      },
+      error: () => {
+        this.snippetError.set('Não foi possível gerar a isca (IA indisponível).');
+        this.generatingSnippet.set(false);
+      },
+    });
+  }
+
+  protected copySnippet(): void {
+    const text = this.snippet();
+    if (text) {
+      navigator.clipboard?.writeText(text);
+    }
   }
 
   protected onFileSelected(event: Event): void {

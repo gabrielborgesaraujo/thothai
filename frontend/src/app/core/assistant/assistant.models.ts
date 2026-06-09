@@ -10,3 +10,8 @@ export interface DraftResponse {
 export interface ReviewResponse {
   recommendations: string[];
 }
+
+/** "Isca" de conteúdo para o LinkedIn gerada por IA. */
+export interface SnippetResponse {
+  text: string;
+}

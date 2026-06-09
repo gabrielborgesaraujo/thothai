@@ -24,3 +24,13 @@ data class ReviewRequest(
 data class ReviewResponse(
     val recommendations: List<String>,
 )
+
+/** Geração de "isca" para LinkedIn a partir de uma postagem (estratégia de distribuição). */
+data class SnippetRequest(
+    val title: String,
+    val content: String,
+)
+
+data class SnippetResponse(
+    val text: String,
+)

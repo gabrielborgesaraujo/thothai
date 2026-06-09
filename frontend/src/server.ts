@@ -4,25 +4,106 @@ import {
   isMainModule,
   writeResponseToNodeResponse,
 } from '@angular/ssr/node';
-import express from 'express';
+import express, { type Request } from 'express';
 import { join } from 'node:path';
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
+const backendOrigin = process.env['BACKEND_ORIGIN'] ?? 'http://localhost:8080';
 
 const app = express();
 const angularApp = new AngularNodeAppEngine();
 
-/**
- * Example Express Rest API endpoints can be defined here.
- * Uncomment and define endpoints as necessary.
- *
- * Example:
- * ```ts
- * app.get('/api/{*splat}', (req, res) => {
- *   // Handle API request
- * });
- * ```
- */
+// O gateway envia X-Forwarded-Proto/Host, então confiamos no proxy para derivar a origem pública.
+app.set('trust proxy', true);
+
+interface PostSummaryLite {
+  slug: string;
+  title: string;
+  summary: string | null;
+  publishedAt: string | null;
+}
+
+function publicOrigin(req: Request): string {
+  return `${req.protocol}://${req.get('host')}`;
+}
+
+function xmlEscape(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+/** Busca os posts publicados no backend; best-effort (falha → lista vazia), para não derrubar a rota. */
+async function fetchPublished(): Promise<PostSummaryLite[]> {
+  try {
+    const res = await fetch(`${backendOrigin}/api/posts?size=1000`);
+    if (!res.ok) {
+      return [];
+    }
+    const page = (await res.json()) as { items?: PostSummaryLite[] };
+    return page.items ?? [];
+  } catch {
+    return [];
+  }
+}
+
+// robots.txt — libera o portal, bloqueia o admin e aponta o sitemap.
+app.get('/robots.txt', (req, res) => {
+  const origin = publicOrigin(req);
+  res
+    .type('text/plain')
+    .send(`User-agent: *\nAllow: /\nDisallow: /admin\n\nSitemap: ${origin}/sitemap.xml\n`);
+});
+
+// sitemap.xml — home, listagem e cada postagem publicada.
+app.get('/sitemap.xml', async (req, res) => {
+  const origin = publicOrigin(req);
+  const posts = await fetchPublished();
+  const urls = [
+    `<url><loc>${origin}/</loc></url>`,
+    `<url><loc>${origin}/posts</loc></url>`,
+    ...posts.map(
+      (p) =>
+        `<url><loc>${origin}/posts/${xmlEscape(p.slug)}</loc>` +
+        (p.publishedAt ? `<lastmod>${xmlEscape(p.publishedAt)}</lastmod>` : '') +
+        `</url>`,
+    ),
+  ].join('');
+  res
+    .type('application/xml')
+    .send(
+      `<?xml version="1.0" encoding="UTF-8"?>` +
+        `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`,
+    );
+});
+
+// rss.xml — feed cronológico das postagens publicadas.
+app.get('/rss.xml', async (req, res) => {
+  const origin = publicOrigin(req);
+  const posts = await fetchPublished();
+  const items = posts
+    .map((p) => {
+      const link = `${origin}/posts/${xmlEscape(p.slug)}`;
+      return (
+        `<item><title>${xmlEscape(p.title)}</title>` +
+        `<link>${link}</link><guid>${link}</guid>` +
+        (p.summary ? `<description>${xmlEscape(p.summary)}</description>` : '') +
+        (p.publishedAt ? `<pubDate>${new Date(p.publishedAt).toUTCString()}</pubDate>` : '') +
+        `</item>`
+      );
+    })
+    .join('');
+  res
+    .type('application/rss+xml')
+    .send(
+      `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel>` +
+        `<title>ThothAI</title><link>${origin}/</link>` +
+        `<description>Hub de conteúdo técnico</description>${items}</channel></rss>`,
+    );
+});
 
 /**
  * Serve static files from /browser
@@ -41,9 +122,7 @@ app.use(
 app.use((req, res, next) => {
   angularApp
     .handle(req)
-    .then((response) =>
-      response ? writeResponseToNodeResponse(response, res) : next(),
-    )
+    .then((response) => (response ? writeResponseToNodeResponse(response, res) : next()))
     .catch(next);
 });
 
