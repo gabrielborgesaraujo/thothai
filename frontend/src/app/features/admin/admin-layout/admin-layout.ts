@@ -27,6 +27,9 @@ import { AuthService } from '../../../core/auth/auth.service';
         <mat-nav-list>
           <a mat-list-item routerLink="/admin/posts" routerLinkActive="bg-gray-100">Postagens</a>
           <a mat-list-item routerLink="/admin/profile" routerLinkActive="bg-gray-100">Perfil</a>
+          <a mat-list-item routerLink="/admin/portfolio" routerLinkActive="bg-gray-100"
+            >Portfólio</a
+          >
         </mat-nav-list>
       </mat-sidenav>
       <mat-sidenav-content>

@@ -24,7 +24,24 @@ export const adminRoutes: Routes = [
         path: 'posts/:id',
         loadComponent: () => import('./posts/post-form/post-form').then((m) => m.PostForm),
       },
-      // Gestão de perfil (RF08) entra aqui.
+      // Cartão de identidade (RF07).
+      {
+        path: 'profile',
+        loadComponent: () => import('./profile/profile-form').then((m) => m.ProfileForm),
+      },
+      // Portfólio curricular (RF08). 'new' antes de ':id' para não ser capturado pelo param.
+      {
+        path: 'portfolio',
+        loadComponent: () => import('./portfolio/portfolio-list').then((m) => m.PortfolioList),
+      },
+      {
+        path: 'portfolio/new',
+        loadComponent: () => import('./portfolio/portfolio-form').then((m) => m.PortfolioForm),
+      },
+      {
+        path: 'portfolio/:id',
+        loadComponent: () => import('./portfolio/portfolio-form').then((m) => m.PortfolioForm),
+      },
     ],
   },
 ];
