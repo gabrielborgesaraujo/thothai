@@ -80,6 +80,12 @@ import { AssistantService } from '../../../../core/assistant/assistant.service';
           <input matInput formControlName="title" />
         </mat-form-field>
 
+        <mat-form-field appearance="outline">
+          <mat-label>Slug (opcional)</mat-label>
+          <input matInput formControlName="slug" placeholder="derivado-do-titulo" />
+          <mat-hint>Deixe em branco para gerar a partir do título.</mat-hint>
+        </mat-form-field>
+
         <div class="flex flex-col gap-3 sm:flex-row">
           <mat-form-field appearance="outline" class="flex-1">
             <mat-label>Tipo</mat-label>
@@ -202,6 +208,7 @@ export class PostForm {
 
   protected readonly form = this.fb.group({
     title: ['', Validators.required],
+    slug: [''],
     type: ['ARTICLE' as PostType, Validators.required],
     status: ['DRAFT' as PostStatus, Validators.required],
     summary: [''],
@@ -235,6 +242,7 @@ export class PostForm {
       status: raw.status,
       summary: raw.summary.trim() ? raw.summary : null,
       body: raw.body,
+      slug: raw.slug.trim() || undefined,
     };
 
     const id = this.editingId();
@@ -332,6 +340,7 @@ export class PostForm {
       next: (post) => {
         this.form.patchValue({
           title: post.title,
+          slug: post.slug,
           type: post.type,
           status: post.status,
           summary: post.summary ?? '',

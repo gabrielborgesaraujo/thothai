@@ -26,6 +26,7 @@ import { AuthService } from '../../../core/auth/auth.service';
         <h2 class="px-3 py-4 text-lg font-semibold">ThothAI Admin</h2>
         <mat-nav-list>
           <a mat-list-item routerLink="/admin/posts" routerLinkActive="bg-gray-100">Postagens</a>
+          <a mat-list-item routerLink="/admin/media" routerLinkActive="bg-gray-100">Mídias</a>
           <a mat-list-item routerLink="/admin/profile" routerLinkActive="bg-gray-100">Perfil</a>
           <a mat-list-item routerLink="/admin/portfolio" routerLinkActive="bg-gray-100"
             >Portfólio</a

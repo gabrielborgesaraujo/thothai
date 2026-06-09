@@ -1,6 +1,7 @@
 package com.gabrielaraujo.thothai.media
 
 import com.gabrielaraujo.thothai.shared.InvalidRequestException
+import com.gabrielaraujo.thothai.shared.ResourceNotFoundException
 import com.gabrielaraujo.thothai.shared.TenantContext
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -43,6 +44,17 @@ internal class MediaService(
                 originalFilename = file.originalFilename,
             ),
         )
+    }
+
+    @Transactional(readOnly = true)
+    fun list(): List<MediaAsset> = mediaAssets.findAllByTenantIdOrderByCreatedAtDesc(TenantContext.currentTenant())
+
+    fun delete(id: UUID) {
+        val asset =
+            mediaAssets.findByTenantIdAndId(TenantContext.currentTenant(), id)
+                ?: throw ResourceNotFoundException("Mídia não encontrada")
+        storage.delete(asset.objectKey)
+        mediaAssets.delete(asset)
     }
 
     private companion object {

@@ -35,6 +35,7 @@ class MediaUploadTests {
     fun cleanUp() {
         mediaAssets.deleteAll()
         (storage as RecordingStorage).stored.clear()
+        (storage as RecordingStorage).deleted.clear()
     }
 
     @Test
@@ -64,6 +65,17 @@ class MediaUploadTests {
         assertFailsWith<InvalidRequestException> { mediaService.upload(file) }
     }
 
+    @Test
+    fun `lista e exclui removendo do storage e do banco`() {
+        val asset = mediaService.upload(MockMultipartFile("file", "foto.png", "image/png", byteArrayOf(1)))
+        assertEquals(1, mediaService.list().size)
+
+        mediaService.delete(requireNotNull(asset.id))
+
+        assertEquals(0, mediaAssets.count())
+        assertEquals(listOf(asset.objectKey), (storage as RecordingStorage).deleted)
+    }
+
     @TestConfiguration
     internal class FakeStorageConfig {
         @Bean
@@ -72,9 +84,10 @@ class MediaUploadTests {
     }
 }
 
-/** Storage de teste que apenas registra as chaves enviadas. */
+/** Storage de teste que apenas registra as chaves enviadas e removidas. */
 internal class RecordingStorage : ObjectStorage {
     val stored = mutableListOf<String>()
+    val deleted = mutableListOf<String>()
 
     override fun store(
         objectKey: String,
@@ -82,5 +95,9 @@ internal class RecordingStorage : ObjectStorage {
         contentType: String,
     ) {
         stored.add(objectKey)
+    }
+
+    override fun delete(objectKey: String) {
+        deleted.add(objectKey)
     }
 }

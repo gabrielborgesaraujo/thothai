@@ -11,5 +11,7 @@ export const authGuard: CanActivateFn = () => {
   if (auth.isAuthenticated()) {
     return true;
   }
-  return auth.fetchSession().pipe(map((user) => (user ? true : router.createUrlTree(['/admin/login']))));
+  return auth
+    .fetchSession()
+    .pipe(map((user) => (user ? true : router.createUrlTree(['/admin/login']))));
 };

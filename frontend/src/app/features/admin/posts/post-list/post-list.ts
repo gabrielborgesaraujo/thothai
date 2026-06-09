@@ -5,8 +5,9 @@ import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { PostService } from '../../../../core/content/post.service';
-import { PostStatus, PostSummary, PostType } from '../../../../core/content/post.models';
+import { Page, PostStatus, PostSummary, PostType } from '../../../../core/content/post.models';
 
 const TYPE_LABELS: Record<PostType, string> = {
   ARTICLE: 'Artigo',
@@ -14,7 +15,7 @@ const TYPE_LABELS: Record<PostType, string> = {
   NOTE: 'Nota',
 };
 
-/** Listagem e gestão das postagens do admin (RF02). */
+/** Listagem e gestão das postagens do admin (RF02), paginada. */
 @Component({
   selector: 'app-post-list',
   imports: [
@@ -24,6 +25,7 @@ const TYPE_LABELS: Record<PostType, string> = {
     MatButtonModule,
     MatIconModule,
     MatProgressBarModule,
+    MatPaginatorModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -39,11 +41,11 @@ const TYPE_LABELS: Record<PostType, string> = {
       <p class="text-sm text-red-600 my-2" role="alert">{{ error() }}</p>
     }
 
-    @if (posts(); as list) {
-      @if (list.length === 0) {
+    @if (result(); as data) {
+      @if (data.totalElements === 0) {
         <p class="text-gray-500">Nenhuma postagem ainda.</p>
       } @else {
-        <table mat-table [dataSource]="list" class="w-full">
+        <table mat-table [dataSource]="data.items" class="w-full">
           <ng-container matColumnDef="title">
             <th mat-header-cell *matHeaderCellDef>Título</th>
             <td mat-cell *matCellDef="let p">{{ p.title }}</td>
@@ -101,6 +103,14 @@ const TYPE_LABELS: Record<PostType, string> = {
           <tr mat-header-row *matHeaderRowDef="columns"></tr>
           <tr mat-row *matRowDef="let row; columns: columns"></tr>
         </table>
+
+        <mat-paginator
+          [length]="data.totalElements"
+          [pageSize]="data.size"
+          [pageIndex]="data.page"
+          [pageSizeOptions]="[10, 20, 50]"
+          (page)="onPage($event)"
+        />
       }
     }
   `,
@@ -108,11 +118,14 @@ const TYPE_LABELS: Record<PostType, string> = {
 export class PostList {
   private readonly postService = inject(PostService);
 
-  protected readonly posts = signal<PostSummary[] | null>(null);
+  protected readonly result = signal<Page<PostSummary> | null>(null);
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
   protected readonly pendingDelete = signal<string | null>(null);
   protected readonly columns = ['title', 'type', 'status', 'published', 'actions'];
+
+  private pageIndex = 0;
+  private pageSize = 20;
 
   constructor() {
     this.reload();
@@ -126,10 +139,20 @@ export class PostList {
     return status === 'PUBLISHED' ? 'Publicado' : 'Rascunho';
   }
 
+  protected onPage(event: PageEvent): void {
+    this.pageIndex = event.pageIndex;
+    this.pageSize = event.pageSize;
+    this.reload();
+  }
+
   protected confirmDelete(id: string): void {
     this.postService.remove(id).subscribe({
       next: () => {
         this.pendingDelete.set(null);
+        // Se a página atual ficou vazia, recua uma página.
+        if (this.result()?.items.length === 1 && this.pageIndex > 0) {
+          this.pageIndex--;
+        }
         this.reload();
       },
       error: () => {
@@ -141,9 +164,9 @@ export class PostList {
 
   private reload(): void {
     this.loading.set(true);
-    this.postService.listAdmin().subscribe({
-      next: (list) => {
-        this.posts.set(list);
+    this.postService.listAdmin(this.pageIndex, this.pageSize).subscribe({
+      next: (data) => {
+        this.result.set(data);
         this.loading.set(false);
       },
       error: () => {

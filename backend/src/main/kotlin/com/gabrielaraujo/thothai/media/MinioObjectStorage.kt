@@ -3,6 +3,7 @@ package com.gabrielaraujo.thothai.media
 import com.gabrielaraujo.thothai.shared.ExternalServiceException
 import io.minio.MinioClient
 import io.minio.PutObjectArgs
+import io.minio.RemoveObjectArgs
 import org.springframework.stereotype.Component
 import java.io.ByteArrayInputStream
 
@@ -34,6 +35,20 @@ internal class MinioObjectStorage(
             }
         } catch (ex: Exception) {
             throw ExternalServiceException("Falha ao enviar a mídia para o storage", ex)
+        }
+    }
+
+    override fun delete(objectKey: String) {
+        try {
+            minioClient.removeObject(
+                RemoveObjectArgs
+                    .builder()
+                    .bucket(properties.bucket)
+                    .`object`(objectKey)
+                    .build(),
+            )
+        } catch (ex: Exception) {
+            throw ExternalServiceException("Falha ao remover a mídia do storage", ex)
         }
     }
 }

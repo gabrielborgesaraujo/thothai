@@ -1,5 +1,7 @@
 package com.gabrielaraujo.thothai.content
 
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import java.util.UUID
 
@@ -13,12 +15,16 @@ internal interface PostRepository : JpaRepository<Post, UUID> {
         id: UUID,
     ): Post?
 
-    fun findAllByTenantIdOrderByCreatedAtDesc(tenantId: String): List<Post>
+    fun findByTenantIdOrderByCreatedAtDesc(
+        tenantId: String,
+        pageable: Pageable,
+    ): Page<Post>
 
     fun findByTenantIdAndStatusOrderByPublishedAtDesc(
         tenantId: String,
         status: PostStatus,
-    ): List<Post>
+        pageable: Pageable,
+    ): Page<Post>
 
     fun findByTenantIdAndStatusAndSlug(
         tenantId: String,
@@ -30,4 +36,11 @@ internal interface PostRepository : JpaRepository<Post, UUID> {
         tenantId: String,
         slug: String,
     ): Boolean
+
+    fun countByTenantId(tenantId: String): Long
+
+    fun countByTenantIdAndStatus(
+        tenantId: String,
+        status: PostStatus,
+    ): Long
 }

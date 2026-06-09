@@ -7,4 +7,6 @@ internal interface ObjectStorage {
         data: ByteArray,
         contentType: String,
     )
+
+    fun delete(objectKey: String)
 }

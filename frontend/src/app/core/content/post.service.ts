@@ -1,7 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from '../api.service';
-import { Post, PostRequest, PostSummary, PublicPost } from './post.models';
+import { Page, Post, PostRequest, PostStats, PostSummary, PublicPost } from './post.models';
 
 /**
  * Acesso às postagens (RF02 admin e RF06 público) sobre o [ApiService], que já prefixa `/api` e
@@ -12,8 +12,12 @@ export class PostService {
   private readonly api = inject(ApiService);
 
   // --- Painel administrativo (RF02) ---
-  listAdmin(): Observable<PostSummary[]> {
-    return this.api.get<PostSummary[]>('/admin/posts');
+  listAdmin(page = 0, size = 20): Observable<Page<PostSummary>> {
+    return this.api.get<Page<PostSummary>>('/admin/posts', { page, size });
+  }
+
+  stats(): Observable<PostStats> {
+    return this.api.get<PostStats>('/admin/posts/stats');
   }
 
   getAdmin(id: string): Observable<Post> {
@@ -33,8 +37,8 @@ export class PostService {
   }
 
   // --- Portal público (RF06) ---
-  listPublished(): Observable<PostSummary[]> {
-    return this.api.get<PostSummary[]>('/posts');
+  listPublished(page = 0, size = 10): Observable<Page<PostSummary>> {
+    return this.api.get<Page<PostSummary>>('/posts', { page, size });
   }
 
   getPublished(slug: string): Observable<PublicPost> {

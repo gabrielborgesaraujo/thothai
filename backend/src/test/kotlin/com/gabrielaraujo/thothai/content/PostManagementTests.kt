@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
+import org.springframework.data.domain.PageRequest
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
@@ -60,9 +61,34 @@ class PostManagementTests {
         postService.create(request(title = "Rascunho", status = PostStatus.DRAFT))
         postService.create(request(title = "Publicado", status = PostStatus.PUBLISHED))
 
-        val published = postService.listPublished()
-        assertEquals(1, published.size)
-        assertEquals("publicado", published.first().slug)
+        val published = postService.listPublished(PageRequest.of(0, 10))
+        assertEquals(1, published.totalElements)
+        assertEquals("publicado", published.content.first().slug)
+    }
+
+    @Test
+    fun `pagina a listagem admin`() {
+        repeat(3) { postService.create(request(title = "Post $it")) }
+
+        val firstPage = postService.list(PageRequest.of(0, 2))
+        assertEquals(3, firstPage.totalElements)
+        assertEquals(2, firstPage.totalPages)
+        assertEquals(2, firstPage.content.size)
+
+        val secondPage = postService.list(PageRequest.of(1, 2))
+        assertEquals(1, secondPage.content.size)
+    }
+
+    @Test
+    fun `contadores do dashboard`() {
+        postService.create(request(title = "A", status = PostStatus.DRAFT))
+        postService.create(request(title = "B", status = PostStatus.PUBLISHED))
+        postService.create(request(title = "C", status = PostStatus.PUBLISHED))
+
+        val stats = postService.stats()
+        assertEquals(1, stats.draft)
+        assertEquals(2, stats.published)
+        assertEquals(3, stats.total)
     }
 
     @Test

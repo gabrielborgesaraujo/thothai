@@ -2,6 +2,8 @@ package com.gabrielaraujo.thothai.content
 
 import com.gabrielaraujo.thothai.shared.ResourceNotFoundException
 import com.gabrielaraujo.thothai.shared.TenantContext
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -17,7 +19,15 @@ internal class PostService(
     private val posts: PostRepository,
 ) {
     @Transactional(readOnly = true)
-    fun list(): List<Post> = posts.findAllByTenantIdOrderByCreatedAtDesc(TenantContext.currentTenant())
+    fun list(pageable: Pageable): Page<Post> = posts.findByTenantIdOrderByCreatedAtDesc(TenantContext.currentTenant(), pageable)
+
+    @Transactional(readOnly = true)
+    fun stats(): PostStatsResponse {
+        val tenant = TenantContext.currentTenant()
+        val total = posts.countByTenantId(tenant)
+        val published = posts.countByTenantIdAndStatus(tenant, PostStatus.PUBLISHED)
+        return PostStatsResponse(draft = total - published, published = published, total = total)
+    }
 
     @Transactional(readOnly = true)
     fun get(id: UUID): Post =
@@ -66,8 +76,8 @@ internal class PostService(
     }
 
     @Transactional(readOnly = true)
-    fun listPublished(): List<Post> =
-        posts.findByTenantIdAndStatusOrderByPublishedAtDesc(TenantContext.currentTenant(), PostStatus.PUBLISHED)
+    fun listPublished(pageable: Pageable): Page<Post> =
+        posts.findByTenantIdAndStatusOrderByPublishedAtDesc(TenantContext.currentTenant(), PostStatus.PUBLISHED, pageable)
 
     @Transactional(readOnly = true)
     fun getPublishedBySlug(slug: String): Post =

@@ -45,6 +45,13 @@ data class PostSummaryResponse(
     val publishedAt: Instant?,
 )
 
+/** Contadores para o dashboard do admin. */
+data class PostStatsResponse(
+    val draft: Long,
+    val published: Long,
+    val total: Long,
+)
+
 /** Postagem publicada para leitura pública (RF06). */
 data class PublicPostResponse(
     val title: String,

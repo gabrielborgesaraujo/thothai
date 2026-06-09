@@ -1,3 +1,19 @@
+/** Página genérica retornada pela API (contrato estável de paginação). */
+export interface Page<T> {
+  items: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+/** Contadores do dashboard. */
+export interface PostStats {
+  draft: number;
+  published: number;
+  total: number;
+}
+
 /** Categoria de postagem (RF02). */
 export type PostType = 'ARTICLE' | 'TUTORIAL' | 'NOTE';
 

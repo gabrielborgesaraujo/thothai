@@ -24,6 +24,11 @@ export const adminRoutes: Routes = [
         path: 'posts/:id',
         loadComponent: () => import('./posts/post-form/post-form').then((m) => m.PostForm),
       },
+      // Gestão de mídias (RF03).
+      {
+        path: 'media',
+        loadComponent: () => import('./media/media-list').then((m) => m.MediaList),
+      },
       // Cartão de identidade (RF07).
       {
         path: 'profile',

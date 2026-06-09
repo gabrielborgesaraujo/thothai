@@ -17,6 +17,8 @@ export const publicRoutes: Routes = [
         loadComponent: () =>
           import('./posts/post-detail/post-detail').then((m) => m.PublicPostDetail),
       },
+      // 404 público (curinga, dentro do layout).
+      { path: '**', loadComponent: () => import('./not-found/not-found').then((m) => m.NotFound) },
     ],
   },
 ];

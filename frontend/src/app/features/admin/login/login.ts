@@ -36,7 +36,12 @@ import { AuthService } from '../../../core/auth/auth.service';
             </mat-form-field>
             <mat-form-field appearance="outline">
               <mat-label>Senha</mat-label>
-              <input matInput type="password" formControlName="password" autocomplete="current-password" />
+              <input
+                matInput
+                type="password"
+                formControlName="password"
+                autocomplete="current-password"
+              />
             </mat-form-field>
             @if (error()) {
               <p class="text-sm text-red-600" role="alert">{{ error() }}</p>

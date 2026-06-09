@@ -3,9 +3,9 @@ import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { Meta, Title } from '@angular/platform-browser';
 import { PostService } from '../../../../core/content/post.service';
-import { PostSummary } from '../../../../core/content/post.models';
+import { Page, PostSummary } from '../../../../core/content/post.models';
 
-/** Listagem pública das postagens publicadas, em ordem cronológica reversa (RF06). */
+/** Listagem pública das postagens publicadas, em ordem cronológica reversa e paginada (RF06). */
 @Component({
   selector: 'app-public-post-list',
   imports: [DatePipe, RouterLink],
@@ -17,12 +17,12 @@ import { PostSummary } from '../../../../core/content/post.models';
       <p class="text-red-600" role="alert">{{ error() }}</p>
     }
 
-    @if (posts(); as list) {
-      @if (list.length === 0) {
+    @if (result(); as data) {
+      @if (data.totalElements === 0) {
         <p class="text-gray-500">Nenhuma publicação ainda.</p>
       } @else {
         <ul class="flex flex-col gap-6">
-          @for (post of list; track post.id) {
+          @for (post of data.items; track post.id) {
             <li>
               <a [routerLink]="['/posts', post.slug]" class="group block">
                 <h2 class="text-lg font-medium group-hover:underline">{{ post.title }}</h2>
@@ -38,6 +38,30 @@ import { PostSummary } from '../../../../core/content/post.models';
             </li>
           }
         </ul>
+
+        @if (data.totalPages > 1) {
+          <nav class="mt-8 flex items-center justify-between" aria-label="Paginação">
+            <button
+              type="button"
+              (click)="go(data.page - 1)"
+              [disabled]="data.page === 0"
+              class="rounded border border-gray-300 px-3 py-1 text-sm disabled:opacity-40 hover:bg-gray-50"
+            >
+              Anterior
+            </button>
+            <span class="text-sm text-gray-500"
+              >Página {{ data.page + 1 }} de {{ data.totalPages }}</span
+            >
+            <button
+              type="button"
+              (click)="go(data.page + 1)"
+              [disabled]="data.page + 1 >= data.totalPages"
+              class="rounded border border-gray-300 px-3 py-1 text-sm disabled:opacity-40 hover:bg-gray-50"
+            >
+              Próxima
+            </button>
+          </nav>
+        }
       }
     }
   `,
@@ -47,7 +71,7 @@ export class PublicPostList {
   private readonly title = inject(Title);
   private readonly meta = inject(Meta);
 
-  protected readonly posts = signal<PostSummary[] | null>(null);
+  protected readonly result = signal<Page<PostSummary> | null>(null);
   protected readonly error = signal<string | null>(null);
 
   constructor() {
@@ -56,10 +80,17 @@ export class PublicPostList {
       name: 'description',
       content: 'Artigos, tutoriais e notas técnicas publicados no ThothAI.',
     });
+    this.load(0);
+  }
 
+  protected go(page: number): void {
+    this.load(page);
+  }
+
+  private load(page: number): void {
     // A requisição é registrada como pending task: o SSR aguarda a resposta antes de renderizar.
-    this.postService.listPublished().subscribe({
-      next: (list) => this.posts.set(list),
+    this.postService.listPublished(page).subscribe({
+      next: (data) => this.result.set(data),
       error: () => this.error.set('Não foi possível carregar as publicações.'),
     });
   }

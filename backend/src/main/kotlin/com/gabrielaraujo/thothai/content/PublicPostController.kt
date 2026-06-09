@@ -1,8 +1,11 @@
 package com.gabrielaraujo.thothai.content
 
+import com.gabrielaraujo.thothai.shared.PageResponse
+import org.springframework.data.domain.PageRequest
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 /**
@@ -15,7 +18,10 @@ internal class PublicPostController(
     private val postService: PostService,
 ) {
     @GetMapping
-    fun list(): List<PostSummaryResponse> = postService.listPublished().map { it.toSummary() }
+    fun list(
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "10") size: Int,
+    ): PageResponse<PostSummaryResponse> = PageResponse.from(postService.listPublished(PageRequest.of(page, size))) { it.toSummary() }
 
     @GetMapping("/{slug}")
     fun get(
