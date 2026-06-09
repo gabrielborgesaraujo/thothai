@@ -19,6 +19,7 @@ import { PostService } from '../../../../core/content/post.service';
 import { PostRequest, PostStatus, PostType } from '../../../../core/content/post.models';
 import { MarkdownPipe } from '../../../../core/content/markdown.pipe';
 import { MediaService } from '../../../../core/media/media.service';
+import { AssistantService } from '../../../../core/assistant/assistant.service';
 
 /** Formulário de criação/edição de postagem com pré-visualização Markdown ao vivo (RF02). */
 @Component({
@@ -47,6 +48,31 @@ import { MediaService } from '../../../../core/media/media.service';
       @if (error()) {
         <p class="text-sm text-red-600 my-2" role="alert">{{ error() }}</p>
       }
+
+      <div class="mb-4 rounded border border-gray-200 bg-gray-50 p-4">
+        <p class="mb-2 text-sm font-medium">Assistente de IA</p>
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-start">
+          <mat-form-field appearance="outline" class="flex-1">
+            <mat-label>Tema</mat-label>
+            <input matInput #themeInput placeholder="Ex.: Padrões de concorrência em Kotlin" />
+          </mat-form-field>
+          <button
+            matButton="tonal"
+            type="button"
+            (click)="generateDraft(themeInput.value)"
+            [disabled]="generating()"
+          >
+            <mat-icon>auto_awesome</mat-icon>
+            Gerar rascunho
+          </button>
+        </div>
+        @if (generating()) {
+          <mat-progress-bar mode="indeterminate" />
+        }
+        @if (aiError()) {
+          <p class="text-sm text-red-600" role="alert">{{ aiError() }}</p>
+        }
+      </div>
 
       <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-3 pt-2">
         <mat-form-field appearance="outline">
@@ -94,8 +120,39 @@ import { MediaService } from '../../../../core/media/media.service';
           @if (uploadError()) {
             <span class="text-sm text-red-600" role="alert">{{ uploadError() }}</span>
           }
+          <button
+            matButton
+            type="button"
+            (click)="review()"
+            [disabled]="reviewing()"
+            aria-label="Revisar conteúdo com IA"
+          >
+            <mat-icon>spellcheck</mat-icon>
+            Revisar com IA
+          </button>
           <input #fileInput type="file" accept="image/*" hidden (change)="onFileSelected($event)" />
         </div>
+
+        @if (reviewing()) {
+          <mat-progress-bar mode="indeterminate" />
+        }
+        @if (reviewError()) {
+          <p class="text-sm text-red-600" role="alert">{{ reviewError() }}</p>
+        }
+        @if (recommendations(); as recs) {
+          <div class="rounded border border-gray-200 p-4">
+            <p class="mb-2 text-sm font-medium">Recomendações da IA</p>
+            @if (recs.length === 0) {
+              <p class="text-sm text-gray-500">Nenhuma recomendação.</p>
+            } @else {
+              <ul class="flex list-disc flex-col gap-1 pl-5 text-sm text-gray-700">
+                @for (rec of recs; track $index) {
+                  <li>{{ rec }}</li>
+                }
+              </ul>
+            }
+          </div>
+        }
 
         <div class="grid gap-3 md:grid-cols-2">
           <mat-form-field appearance="outline">
@@ -126,6 +183,7 @@ export class PostForm {
   private readonly fb = inject(NonNullableFormBuilder);
   private readonly postService = inject(PostService);
   private readonly media = inject(MediaService);
+  private readonly assistant = inject(AssistantService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
@@ -136,6 +194,11 @@ export class PostForm {
   protected readonly editingId = signal<string | null>(null);
   protected readonly uploading = signal(false);
   protected readonly uploadError = signal<string | null>(null);
+  protected readonly generating = signal(false);
+  protected readonly aiError = signal<string | null>(null);
+  protected readonly reviewing = signal(false);
+  protected readonly reviewError = signal<string | null>(null);
+  protected readonly recommendations = signal<string[] | null>(null);
 
   protected readonly form = this.fb.group({
     title: ['', Validators.required],
@@ -181,6 +244,47 @@ export class PostForm {
       error: () => {
         this.error.set('Falha ao salvar a postagem.');
         this.loading.set(false);
+      },
+    });
+  }
+
+  /** RF04 — gera um rascunho a partir do tema (busca viva + IA) e preenche o formulário. */
+  protected generateDraft(theme: string): void {
+    if (!theme.trim() || this.generating()) {
+      return;
+    }
+    this.generating.set(true);
+    this.aiError.set(null);
+    this.assistant.generateDraft(theme).subscribe({
+      next: (draft) => {
+        this.form.patchValue({ title: draft.title, summary: draft.summary ?? '' });
+        this.form.controls.body.setValue(draft.body);
+        this.generating.set(false);
+      },
+      error: () => {
+        this.aiError.set('Não foi possível gerar o rascunho (IA indisponível).');
+        this.generating.set(false);
+      },
+    });
+  }
+
+  /** RF05 — envia o corpo atual para revisão por IA e lista as recomendações. */
+  protected review(): void {
+    const body = this.form.controls.body.value;
+    if (!body.trim() || this.reviewing()) {
+      return;
+    }
+    this.reviewing.set(true);
+    this.reviewError.set(null);
+    this.recommendations.set(null);
+    this.assistant.review(body).subscribe({
+      next: (res) => {
+        this.recommendations.set(res.recommendations);
+        this.reviewing.set(false);
+      },
+      error: () => {
+        this.reviewError.set('Não foi possível revisar (IA indisponível).');
+        this.reviewing.set(false);
       },
     });
   }
