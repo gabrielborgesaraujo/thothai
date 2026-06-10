@@ -82,6 +82,8 @@ services:
       SESSION_TIMEOUT: ${SESSION_TIMEOUT:-30m}
       # Origem do navegador = gateway (origem única).
       FRONTEND_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:8088}
+      # Base das URLs absolutas em feed.xml/sitemap.xml/robots.txt (SEO).
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:8088}
       # Provedores externos (RF04/RF05) — opcionais (chaves vazias por padrão).
       AI_PROVIDER: ${AI_PROVIDER:-claude}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}

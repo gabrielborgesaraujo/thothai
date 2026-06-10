@@ -42,6 +42,8 @@ management:
 
 # Configurações específicas da aplicação ThothAI
 thothai:
+  # Origem pública do site (gateway) — base das URLs absolutas em feed/sitemap/robots (SEO)
+  public-origin: ${PUBLIC_ORIGIN:http://localhost:8088}
   cors:
     # Origem do frontend autorizada (RNF — painel admin)
     allowed-origins: ${FRONTEND_ORIGIN:http://localhost:4200}
