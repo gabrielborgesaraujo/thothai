@@ -1,6 +1,7 @@
 package com.gabrielaraujo.thothai.media
 
 import com.gabrielaraujo.thothai.shared.ExternalServiceException
+import io.minio.GetObjectArgs
 import io.minio.MinioClient
 import io.minio.PutObjectArgs
 import io.minio.RemoveObjectArgs
@@ -37,6 +38,20 @@ internal class MinioObjectStorage(
             throw ExternalServiceException("Falha ao enviar a mídia para o storage", ex)
         }
     }
+
+    override fun fetch(objectKey: String): ByteArray =
+        try {
+            minioClient
+                .getObject(
+                    GetObjectArgs
+                        .builder()
+                        .bucket(properties.bucket)
+                        .`object`(objectKey)
+                        .build(),
+                ).use { it.readBytes() }
+        } catch (ex: Exception) {
+            throw ExternalServiceException("Falha ao baixar a mídia do storage", ex)
+        }
 
     override fun delete(objectKey: String) {
         try {

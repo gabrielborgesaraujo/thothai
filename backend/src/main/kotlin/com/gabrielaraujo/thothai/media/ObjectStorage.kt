@@ -8,5 +8,8 @@ internal interface ObjectStorage {
         contentType: String,
     )
 
+    /** Baixa os bytes de um objeto (usado pela edição de imagem no servidor). */
+    fun fetch(objectKey: String): ByteArray
+
     fun delete(objectKey: String)
 }
