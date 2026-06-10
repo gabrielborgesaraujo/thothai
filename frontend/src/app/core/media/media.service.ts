@@ -1,7 +1,12 @@
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from '../api.service';
-import { MediaResponse, MediaSummary } from './media.models';
+import {
+  MediaEditRequest,
+  MediaResponse,
+  MediaSummary,
+  MediaUpdateRequest,
+} from './media.models';
 
 /**
  * Mídias incorporadas (RF03) sobre o [ApiService]. O HttpClient define o boundary multipart a
@@ -17,8 +22,26 @@ export class MediaService {
     return this.api.post<MediaResponse>('/admin/media', form);
   }
 
-  list(): Observable<MediaSummary[]> {
-    return this.api.get<MediaSummary[]>('/admin/media');
+  list(q?: string, tag?: string): Observable<MediaSummary[]> {
+    return this.api.get<MediaSummary[]>('/admin/media', {
+      q: q?.trim() || undefined,
+      tag: tag || undefined,
+    });
+  }
+
+  /** Tags em uso na galeria (chips de filtro). */
+  tags(): Observable<string[]> {
+    return this.api.get<string[]>('/admin/media/tags');
+  }
+
+  /** Metadados editáveis (alt, descrição, tags). */
+  update(id: string, request: MediaUpdateRequest): Observable<MediaSummary> {
+    return this.api.put<MediaSummary>(`/admin/media/${id}`, request);
+  }
+
+  /** Edição de imagem no servidor — retorna a NOVA mídia criada. */
+  edit(id: string, request: MediaEditRequest): Observable<MediaSummary> {
+    return this.api.post<MediaSummary>(`/admin/media/${id}/edits`, request);
   }
 
   remove(id: string): Observable<void> {
