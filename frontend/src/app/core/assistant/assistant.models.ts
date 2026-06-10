@@ -19,19 +19,37 @@ export interface SnippetResponse {
 /** Origem efetiva de uma chave de IA. */
 export type AiKeySource = 'CUSTOM' | 'ENVIRONMENT';
 
+/** Provedores de LLM suportados. */
+export type AiProvider = 'ANTHROPIC' | 'OPENAI' | 'GEMINI' | 'QWEN' | 'OPENAI_COMPATIBLE';
+
+/** Item do catálogo de provedores exibido no painel. */
+export interface AiProviderInfo {
+  id: AiProvider;
+  label: string;
+  defaultModel: string | null;
+  defaultBaseUrl: string | null;
+  requiresBaseUrl: boolean;
+}
+
 /** Estado das integrações de IA — chaves aparecem só como sufixo de conferência. */
 export interface AiSettings {
-  anthropicSource: AiKeySource | null;
-  anthropicKeyHint: string | null;
-  anthropicModel: string | null;
+  provider: AiProvider;
+  keySource: AiKeySource | null;
+  keyHint: string | null;
+  model: string | null;
+  baseUrl: string | null;
   defaultModel: string;
+  defaultBaseUrl: string | null;
+  providers: AiProviderInfo[];
   tavilySource: AiKeySource | null;
   tavilyKeyHint: string | null;
 }
 
 /** Atualização parcial: campo `null`/omitido mantém; string vazia limpa. */
 export interface AiSettingsRequest {
-  anthropicApiKey?: string;
-  anthropicModel?: string;
+  provider?: AiProvider;
+  apiKey?: string;
+  model?: string;
+  baseUrl?: string;
   tavilyApiKey?: string;
 }

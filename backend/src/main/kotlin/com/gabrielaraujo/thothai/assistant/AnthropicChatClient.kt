@@ -4,36 +4,29 @@ import com.anthropic.client.AnthropicClient
 import com.anthropic.client.okhttp.AnthropicOkHttpClient
 import com.anthropic.models.messages.MessageCreateParams
 import com.gabrielaraujo.thothai.shared.ExternalServiceException
-import com.gabrielaraujo.thothai.shared.InvalidRequestException
 import org.springframework.stereotype.Component
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.jvm.optionals.getOrNull
 
 /**
- * [LlmClient] sobre o SDK oficial Anthropic (Claude). A chave/modelo são resolvidos a cada chamada
- * ([AiSettingsService]: banco > ambiente), permitindo configurar pelo painel sem reiniciar.
- * Chave em branco → [InvalidRequestException]; falha de comunicação → [ExternalServiceException] (RNF02).
+ * Chamada de chat à API da Anthropic (SDK oficial), usada pelo [RoutingLlmClient] quando o
+ * provedor efetivo é [AiProvider.ANTHROPIC]. Falha de comunicação → [ExternalServiceException]
+ * para não derrubar o painel (RNF02).
  */
 @Component
-internal class ClaudeLlmClient(
-    private val settings: AiSettingsService,
+internal class AnthropicChatClient(
     private val properties: AiProperties,
-) : LlmClient {
+) {
     /** Clientes por chave: troca de chave no painel passa a usar um cliente novo sem reinício. */
     private val clients = ConcurrentHashMap<String, AnthropicClient>()
 
-    override fun complete(
+    fun complete(
+        resolved: AiSettingsService.ResolvedAi,
         system: String,
         user: String,
         maxTokens: Int,
-    ): String {
-        val resolved = settings.resolveClaude()
-        if (resolved.apiKey.isBlank()) {
-            throw InvalidRequestException(
-                "Assistente de IA não configurado — informe sua chave Anthropic em Integrações",
-            )
-        }
-        return try {
+    ): String =
+        try {
             val params =
                 MessageCreateParams
                     .builder()
@@ -42,7 +35,7 @@ internal class ClaudeLlmClient(
                     .system(system)
                     .addUserMessage(user)
                     .build()
-            clientFor(resolved.apiKey)
+            clientFor(resolved.apiKey, resolved.baseUrl)
                 .messages()
                 .create(params)
                 .content()
@@ -52,18 +45,20 @@ internal class ClaudeLlmClient(
         } catch (ex: Exception) {
             throw ExternalServiceException("Falha ao consultar o assistente de IA", ex)
         }
-    }
 
-    private fun clientFor(apiKey: String): AnthropicClient {
+    private fun clientFor(
+        apiKey: String,
+        baseUrl: String,
+    ): AnthropicClient {
         // Mantém no máximo o cliente da chave corrente (single-publisher): limpa trocas antigas.
         if (clients.size > 4) {
             clients.clear()
         }
-        return clients.computeIfAbsent(apiKey) {
+        return clients.computeIfAbsent("$apiKey|$baseUrl") {
             AnthropicOkHttpClient
                 .builder()
                 .apiKey(apiKey)
-                .baseUrl(properties.claude.baseUrl)
+                .baseUrl(baseUrl.ifBlank { "https://api.anthropic.com" })
                 .timeout(properties.timeout)
                 .build()
         }

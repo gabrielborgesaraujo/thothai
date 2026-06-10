@@ -12,24 +12,43 @@ enum class AiKeySource {
 }
 
 /**
- * Atualização parcial das chaves de IA: campo `null` mantém o valor atual;
- * string em branco limpa e volta ao fallback de ambiente.
+ * Atualização parcial das integrações de IA: campo `null` mantém o valor atual; string em branco
+ * limpa. Trocar de [provider] zera chave/modelo/base URL que não vierem na mesma requisição.
  */
 data class AiSettingsRequest(
+    val provider: AiProvider? = null,
     @field:Size(max = 255)
-    val anthropicApiKey: String? = null,
+    val apiKey: String? = null,
     @field:Size(max = 128)
-    val anthropicModel: String? = null,
+    val model: String? = null,
+    @field:Size(max = 512)
+    val baseUrl: String? = null,
     @field:Size(max = 255)
     val tavilyApiKey: String? = null,
 )
 
+/** Item do catálogo de provedores exibido no painel. */
+data class AiProviderInfo(
+    val id: AiProvider,
+    val label: String,
+    val defaultModel: String?,
+    val defaultBaseUrl: String?,
+    val requiresBaseUrl: Boolean,
+)
+
 /** Estado das integrações de IA — as chaves aparecem apenas como sufixo de conferência. */
 data class AiSettingsResponse(
-    val anthropicSource: AiKeySource?,
-    val anthropicKeyHint: String?,
-    val anthropicModel: String?,
+    /** Provedor efetivo (escolhido no painel ou o padrão do servidor). */
+    val provider: AiProvider,
+    /** Origem da chave do LLM em uso. */
+    val keySource: AiKeySource?,
+    val keyHint: String?,
+    /** Modelo/base URL personalizados (nulos = defaults do provedor). */
+    val model: String?,
+    val baseUrl: String?,
     val defaultModel: String,
+    val defaultBaseUrl: String?,
+    val providers: List<AiProviderInfo>,
     val tavilySource: AiKeySource?,
     val tavilyKeyHint: String?,
 )
