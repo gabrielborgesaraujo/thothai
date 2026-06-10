@@ -10,8 +10,18 @@ import { join } from 'node:path';
 const browserDistFolder = join(import.meta.dirname, '../browser');
 const backendOrigin = process.env['BACKEND_ORIGIN'] ?? 'http://localhost:8080';
 
+// Atrás do gateway nginx (proxy confiável): autoriza os hosts públicos (allowlist anti-SSRF do
+// Angular SSR) e confia nos headers X-Forwarded-* repassados pelo gateway.
+const allowedHosts = (process.env['NG_ALLOWED_HOSTS'] ?? 'localhost')
+  .split(',')
+  .map((host) => host.trim())
+  .filter(Boolean);
+
 const app = express();
-const angularApp = new AngularNodeAppEngine();
+const angularApp = new AngularNodeAppEngine({
+  allowedHosts,
+  trustProxyHeaders: true,
+});
 
 // O gateway envia X-Forwarded-Proto/Host, então confiamos no proxy para derivar a origem pública.
 app.set('trust proxy', true);

@@ -66,6 +66,12 @@ export class Login {
     password: ['', Validators.required],
   });
 
+  constructor() {
+    // Materializa o cookie XSRF-TOKEN antes do POST de login: o backend o emite em qualquer
+    // requisição, e o Angular precisa lê-lo para enviar o header X-XSRF-TOKEN (senão o POST dá 403).
+    this.auth.fetchSession().subscribe();
+  }
+
   protected submit(): void {
     if (this.form.invalid || this.loading()) {
       return;

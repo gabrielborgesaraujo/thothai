@@ -103,14 +103,24 @@ not take down the admin panel (RNF02). The system is packaged via Docker / Docke
 
 ## Running the full stack (Docker)
 
-[docker-compose.yml](docker-compose.yml) brings up everything: `postgres`, `minio` (+ bucket init),
-`backend`, `frontend` (SSR), and an nginx `gateway`. The gateway is the **single browser origin**
+Two standalone compose files bring up everything (`postgres`, `minio` + bucket init, `backend`,
+`frontend` SSR, nginx `gateway`). The gateway is the **single browser origin**
 ([infra/nginx.conf](infra/nginx.conf)): it serves the Angular SSR app at `/` and proxies `/api`,
 `/swagger-ui`, `/actuator` to the backend — so the session cookie is same-origin (no CORS/CSRF pain).
 
+- **Dev** — [docker-compose.dev.yml](docker-compose.dev.yml): defaults baked in, runs with no `.env`;
+  Postgres and the MinIO console ports are exposed for local inspection.
+- **Prod** — [docker-compose.prod.yml](docker-compose.prod.yml): reads everything from `.env`,
+  fails fast (`${VAR:?...}`) on missing secrets; Postgres is internal-only and the MinIO console is
+  not published. Template: [.env.prod.example](.env.prod.example).
+
 ```powershell
-copy .env.example .env          # adjust secrets/keys as needed
-docker compose up -d --build    # build + start the whole app
+# Dev (zero config):
+docker compose -f docker-compose.dev.yml up -d --build
+
+# Prod:
+copy .env.prod.example .env     # fill in all values
+docker compose -f docker-compose.prod.yml --env-file .env up -d --build
 ```
 
 - App: `http://localhost:8088` (host port is `PUBLIC_PORT`, default **8088** — port 80 is reserved
