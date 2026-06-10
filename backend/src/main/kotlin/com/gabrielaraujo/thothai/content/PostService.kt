@@ -57,6 +57,7 @@ internal class PostService(
                 status = request.status,
                 summary = request.summary,
                 body = request.body,
+                bannerUrl = request.bannerUrl?.takeIf { it.isNotBlank() },
                 tags = normalizeTags(request.tags),
             )
         applyPublicationState(post, request)
@@ -72,6 +73,7 @@ internal class PostService(
         post.type = request.type
         post.summary = request.summary
         post.body = request.body
+        post.bannerUrl = request.bannerUrl?.takeIf { it.isNotBlank() }
         // Substituição em vez de nova coleção: preserva a coleção gerenciada pelo Hibernate.
         post.tags.clear()
         post.tags.addAll(normalizeTags(request.tags))

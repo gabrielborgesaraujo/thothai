@@ -18,6 +18,9 @@ data class PostRequest(
     val body: String,
     @field:Size(max = 255)
     val slug: String? = null,
+    /** Imagem de capa (URL pública da mídia). */
+    @field:Size(max = 1024)
+    val bannerUrl: String? = null,
     /** Tags livres (normalizadas para minúsculas no serviço). */
     @field:Size(max = 10)
     val tags: List<
@@ -37,6 +40,7 @@ data class PostResponse(
     val status: PostStatus,
     val summary: String?,
     val body: String,
+    val bannerUrl: String?,
     val tags: List<String>,
     val publishedAt: Instant?,
     val scheduledAt: Instant?,
@@ -52,6 +56,7 @@ data class PostSummaryResponse(
     val type: PostType,
     val status: PostStatus,
     val summary: String?,
+    val bannerUrl: String?,
     val tags: List<String>,
     val publishedAt: Instant?,
     val scheduledAt: Instant?,
@@ -72,6 +77,7 @@ data class PublicPostResponse(
     val type: PostType,
     val summary: String?,
     val body: String,
+    val bannerUrl: String?,
     val tags: List<String>,
     val publishedAt: Instant?,
 )
@@ -85,6 +91,7 @@ internal fun Post.toResponse() =
         status = status,
         summary = summary,
         body = body,
+        bannerUrl = bannerUrl,
         tags = tags.sorted(),
         publishedAt = publishedAt,
         scheduledAt = scheduledAt,
@@ -100,6 +107,7 @@ internal fun Post.toSummary() =
         type = type,
         status = status,
         summary = summary,
+        bannerUrl = bannerUrl,
         tags = tags.sorted(),
         publishedAt = publishedAt,
         scheduledAt = scheduledAt,
@@ -112,6 +120,7 @@ internal fun Post.toPublic() =
         type = type,
         summary = summary,
         body = body,
+        bannerUrl = bannerUrl,
         tags = tags.sorted(),
         publishedAt = publishedAt,
     )

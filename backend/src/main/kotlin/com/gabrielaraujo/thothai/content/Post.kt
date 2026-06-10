@@ -34,6 +34,9 @@ class Post(
     var summary: String?,
     @Column(name = "body", nullable = false)
     var body: String,
+    /** Imagem de capa (cards em mosaico, hero do detalhe e og:image). */
+    @Column(name = "banner_url", length = 1024)
+    var bannerUrl: String? = null,
     @Column(name = "published_at")
     var publishedAt: Instant? = null,
     /** Horário-alvo de publicação quando [status] é [PostStatus.SCHEDULED]. */

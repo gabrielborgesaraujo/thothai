@@ -153,6 +153,36 @@ class PostManagementTests {
     }
 
     @Test
+    fun `banner e persistido e pode ser removido`() {
+        val created =
+            postService.create(
+                PostRequest(
+                    title = "Com banner",
+                    type = PostType.ARTICLE,
+                    status = PostStatus.DRAFT,
+                    summary = null,
+                    body = "corpo",
+                    bannerUrl = "http://localhost:9000/thothai-media/banner.png",
+                ),
+            )
+        assertEquals("http://localhost:9000/thothai-media/banner.png", created.bannerUrl)
+
+        val updated =
+            postService.update(
+                requireNotNull(created.id),
+                PostRequest(
+                    title = "Com banner",
+                    type = PostType.ARTICLE,
+                    status = PostStatus.DRAFT,
+                    summary = null,
+                    body = "corpo",
+                    bannerUrl = " ",
+                ),
+            )
+        assertNull(updated.bannerUrl)
+    }
+
+    @Test
     fun `voltar para rascunho limpa o agendamento`() {
         val post =
             postService.create(
