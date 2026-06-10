@@ -2,15 +2,38 @@
 
 @import 'tailwindcss';
 
+/* Tema escuro manual: a variante `dark:` é ativada pela classe `dark` no <html> (ThemeService). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* O color-scheme rege as cores M3 do Angular Material (light-dark()) e os widgets nativos. */
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+
 /*
  * Tipografia de leitura para conteúdo Markdown renderizado via [innerHTML] (RF06).
  * Precisa ser global: o preflight do Tailwind zera margens/headings e estilos de componente
- * (scoped) não alcançam HTML injetado.
+ * (scoped) não alcançam HTML injetado. As cores usam variáveis para suportar claro/escuro.
  */
 .markdown-body {
-  line-height: 1.7;
-  color: var(--color-gray-800, #1f2937);
+  --md-fg: var(--color-gray-800);
+  --md-muted: var(--color-gray-500);
+  --md-link: var(--color-blue-600);
+  --md-border: var(--color-gray-200);
+  --md-code-bg: var(--color-gray-100);
+  line-height: 1.75;
+  color: var(--md-fg);
   overflow-wrap: anywhere;
+}
+.dark .markdown-body {
+  --md-fg: var(--color-gray-200);
+  --md-muted: var(--color-gray-400);
+  --md-link: var(--color-blue-400);
+  --md-border: var(--color-gray-700);
+  --md-code-bg: var(--color-gray-800);
 }
 .markdown-body > :first-child {
   margin-top: 0;
@@ -51,18 +74,18 @@
   list-style: decimal;
 }
 .markdown-body a {
-  color: #2563eb;
+  color: var(--md-link);
   text-decoration: underline;
 }
 .markdown-body blockquote {
-  border-left: 3px solid #e5e7eb;
+  border-left: 3px solid var(--md-border);
   padding-left: 1rem;
-  color: #6b7280;
+  color: var(--md-muted);
 }
 .markdown-body code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.875em;
-  background: #f3f4f6;
+  background: var(--md-code-bg);
   padding: 0.15em 0.35em;
   border-radius: 0.25rem;
 }
@@ -73,6 +96,10 @@
   border-radius: 0.5rem;
   overflow-x: auto;
 }
+.dark .markdown-body pre {
+  background: var(--color-gray-900);
+  outline: 1px solid var(--color-gray-800);
+}
 .markdown-body pre code {
   background: transparent;
   padding: 0;
@@ -82,4 +109,20 @@
   max-width: 100%;
   height: auto;
   border-radius: 0.5rem;
+}
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+.markdown-body th,
+.markdown-body td {
+  border: 1px solid var(--md-border);
+  padding: 0.4em 0.7em;
+  text-align: left;
+}
+.markdown-body hr {
+  border: 0;
+  border-top: 1px solid var(--md-border);
+  margin: 2em 0;
 }
