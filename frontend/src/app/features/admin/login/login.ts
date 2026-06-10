@@ -20,7 +20,7 @@ import { AuthService } from '../../../core/auth/auth.service';
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="min-h-dvh grid place-items-center bg-gray-50 p-4">
+    <div class="min-h-dvh grid place-items-center bg-gray-50 p-4 dark:bg-gray-950">
       <mat-card class="w-full max-w-sm">
         @if (loading()) {
           <mat-progress-bar mode="indeterminate" />
@@ -44,7 +44,7 @@ import { AuthService } from '../../../core/auth/auth.service';
               />
             </mat-form-field>
             @if (error()) {
-              <p class="text-sm text-red-600" role="alert">{{ error() }}</p>
+              <p class="text-sm text-red-600 dark:text-red-400" role="alert">{{ error() }}</p>
             }
             <button matButton="filled" type="submit" [disabled]="loading()">Entrar</button>
           </form>

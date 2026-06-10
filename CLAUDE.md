@@ -94,6 +94,16 @@ to all frontend work.
 - Public routes must use SSR or prerendering; admin routes may be CSR (per the spec).
 - Pages must render OpenGraph / Twitter Card meta tags dynamically for rich link previews (RNF05).
 - Public UI is **Mobile First** (RNF04). Tailwind for layout; Angular Material for complex interactions.
+- The backend serves `/feed.xml` (RSS), `/sitemap.xml` and `/robots.txt` (routed by the gateway);
+  their absolute URLs are built from `PUBLIC_ORIGIN`.
+
+### Theming (light/dark)
+- Dark mode is **class-based**: the `dark` class on `<html>` drives both the Tailwind `dark:`
+  variant (`@custom-variant` in [styles.css](frontend/src/styles.css)) and `color-scheme: dark`
+  (which switches Angular Material's M3 system colors).
+- `ThemeService` ([core/theme](frontend/src/app/core/theme/theme.service.ts)) persists the choice
+  in localStorage; an inline script in [index.html](frontend/src/index.html) applies it pre-paint
+  (anti-FOUC). New UI must include `dark:` variants for any hardcoded gray/color utilities.
 
 ## External infrastructure
 

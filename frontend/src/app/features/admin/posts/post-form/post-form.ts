@@ -21,6 +21,28 @@ import { MarkdownPipe } from '../../../../core/content/markdown.pipe';
 import { MediaService } from '../../../../core/media/media.service';
 import { AssistantService } from '../../../../core/assistant/assistant.service';
 
+/** Ações da barra de formatação Markdown: envolve a seleção ou prefixa a linha. */
+interface ToolbarAction {
+  icon: string;
+  label: string;
+  prefix: string;
+  suffix?: string;
+  block?: boolean;
+}
+
+const TOOLBAR_ACTIONS: ToolbarAction[] = [
+  { icon: 'format_bold', label: 'Negrito', prefix: '**', suffix: '**' },
+  { icon: 'format_italic', label: 'Itálico', prefix: '*', suffix: '*' },
+  { icon: 'title', label: 'Título (H2)', prefix: '## ', block: true },
+  { icon: 'code', label: 'Código inline', prefix: '`', suffix: '`' },
+  { icon: 'data_object', label: 'Bloco de código', prefix: '\n```\n', suffix: '\n```\n' },
+  { icon: 'link', label: 'Link', prefix: '[', suffix: '](https://)' },
+  { icon: 'format_quote', label: 'Citação', prefix: '> ', block: true },
+  { icon: 'format_list_bulleted', label: 'Lista', prefix: '- ', block: true },
+];
+
+const MAX_TAGS = 10;
+
 /** Formulário de criação/edição de postagem com pré-visualização Markdown ao vivo (RF02). */
 @Component({
   selector: 'app-post-form',
@@ -38,7 +60,7 @@ import { AssistantService } from '../../../../core/assistant/assistant.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="max-w-5xl">
-      <h1 class="text-2xl font-semibold tracking-tight mb-4">
+      <h1 class="mb-4 text-2xl font-semibold tracking-tight">
         {{ editingId() ? 'Editar postagem' : 'Nova postagem' }}
       </h1>
 
@@ -46,11 +68,16 @@ import { AssistantService } from '../../../../core/assistant/assistant.service';
         <mat-progress-bar mode="indeterminate" />
       }
       @if (error()) {
-        <p class="text-sm text-red-600 my-2" role="alert">{{ error() }}</p>
+        <p class="my-2 text-sm text-red-600 dark:text-red-400" role="alert">{{ error() }}</p>
       }
 
-      <div class="mb-4 rounded border border-gray-200 bg-gray-50 p-4">
-        <p class="mb-2 text-sm font-medium">Assistente de IA</p>
+      <div
+        class="mb-4 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4 dark:border-indigo-900/60 dark:bg-indigo-950/30"
+      >
+        <p class="mb-2 inline-flex items-center gap-1.5 text-sm font-medium">
+          <mat-icon class="text-[18px]! text-indigo-500">auto_awesome</mat-icon>
+          Assistente de IA
+        </p>
         <div class="flex flex-col gap-2 sm:flex-row sm:items-start">
           <mat-form-field appearance="outline" class="flex-1">
             <mat-label>Tema</mat-label>
@@ -70,7 +97,7 @@ import { AssistantService } from '../../../../core/assistant/assistant.service';
           <mat-progress-bar mode="indeterminate" />
         }
         @if (aiError()) {
-          <p class="text-sm text-red-600" role="alert">{{ aiError() }}</p>
+          <p class="text-sm text-red-600 dark:text-red-400" role="alert">{{ aiError() }}</p>
         }
       </div>
 
@@ -99,9 +126,57 @@ import { AssistantService } from '../../../../core/assistant/assistant.service';
             <mat-label>Status</mat-label>
             <mat-select formControlName="status">
               <mat-option value="DRAFT">Rascunho</mat-option>
+              <mat-option value="SCHEDULED">Agendado</mat-option>
               <mat-option value="PUBLISHED">Publicado</mat-option>
             </mat-select>
           </mat-form-field>
+        </div>
+
+        @if (statusValue() === 'SCHEDULED') {
+          <mat-form-field appearance="outline">
+            <mat-label>Publicar em</mat-label>
+            <input matInput type="datetime-local" formControlName="scheduledAt" />
+            <mat-hint>A postagem será publicada automaticamente nesse horário.</mat-hint>
+          </mat-form-field>
+        }
+
+        <!-- Tags: chips adicionadas com Enter ou vírgula; Backspace remove a última. -->
+        <div>
+          <label
+            for="tag-input"
+            class="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400"
+            >Tags ({{ tags().length }}/{{ maxTags }})</label
+          >
+          <div
+            class="flex flex-wrap items-center gap-1.5 rounded-lg border border-gray-300 bg-white p-2 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/30 dark:border-gray-700 dark:bg-gray-900"
+          >
+            @for (tag of tags(); track tag) {
+              <span
+                class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+              >
+                #{{ tag }}
+                <button
+                  type="button"
+                  (click)="removeTag(tag)"
+                  class="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                  [attr.aria-label]="'Remover tag ' + tag"
+                >
+                  <span class="material-icons text-[14px] align-middle" aria-hidden="true"
+                    >close</span
+                  >
+                </button>
+              </span>
+            }
+            <input
+              id="tag-input"
+              #tagInput
+              type="text"
+              (keydown)="onTagKeydown($event)"
+              (blur)="addTag(tagInput.value); tagInput.value = ''"
+              [placeholder]="tags().length ? '' : 'Adicionar tag…'"
+              class="min-w-28 flex-1 bg-transparent py-0.5 text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-gray-500"
+            />
+          </div>
         </div>
 
         <mat-form-field appearance="outline">
@@ -109,7 +184,7 @@ import { AssistantService } from '../../../../core/assistant/assistant.service';
           <textarea matInput formControlName="summary" rows="2"></textarea>
         </mat-form-field>
 
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-3">
           <button
             matButton
             type="button"
@@ -124,7 +199,9 @@ import { AssistantService } from '../../../../core/assistant/assistant.service';
             <mat-progress-bar mode="indeterminate" class="flex-1" />
           }
           @if (uploadError()) {
-            <span class="text-sm text-red-600" role="alert">{{ uploadError() }}</span>
+            <span class="text-sm text-red-600 dark:text-red-400" role="alert">{{
+              uploadError()
+            }}</span>
           }
           <button
             matButton
@@ -153,15 +230,15 @@ import { AssistantService } from '../../../../core/assistant/assistant.service';
           <mat-progress-bar mode="indeterminate" />
         }
         @if (reviewError()) {
-          <p class="text-sm text-red-600" role="alert">{{ reviewError() }}</p>
+          <p class="text-sm text-red-600 dark:text-red-400" role="alert">{{ reviewError() }}</p>
         }
         @if (recommendations(); as recs) {
-          <div class="rounded border border-gray-200 p-4">
+          <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
             <p class="mb-2 text-sm font-medium">Recomendações da IA</p>
             @if (recs.length === 0) {
-              <p class="text-sm text-gray-500">Nenhuma recomendação.</p>
+              <p class="text-sm text-gray-500 dark:text-gray-400">Nenhuma recomendação.</p>
             } @else {
-              <ul class="flex list-disc flex-col gap-1 pl-5 text-sm text-gray-700">
+              <ul class="flex list-disc flex-col gap-1 pl-5 text-sm text-gray-700 dark:text-gray-300">
                 @for (rec of recs; track $index) {
                   <li>{{ rec }}</li>
                 }
@@ -174,10 +251,10 @@ import { AssistantService } from '../../../../core/assistant/assistant.service';
           <mat-progress-bar mode="indeterminate" />
         }
         @if (snippetError()) {
-          <p class="text-sm text-red-600" role="alert">{{ snippetError() }}</p>
+          <p class="text-sm text-red-600 dark:text-red-400" role="alert">{{ snippetError() }}</p>
         }
         @if (snippet(); as text) {
-          <div class="rounded border border-gray-200 p-4">
+          <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
             <div class="mb-2 flex items-center justify-between">
               <p class="text-sm font-medium">Isca para LinkedIn</p>
               <button matButton type="button" (click)="copySnippet()">
@@ -185,29 +262,55 @@ import { AssistantService } from '../../../../core/assistant/assistant.service';
                 Copiar
               </button>
             </div>
-            <p class="whitespace-pre-wrap text-sm text-gray-700">{{ text }}</p>
+            <p class="text-sm whitespace-pre-wrap text-gray-700 dark:text-gray-300">{{ text }}</p>
           </div>
         }
 
         <div class="grid gap-3 md:grid-cols-2">
-          <mat-form-field appearance="outline">
-            <mat-label>Conteúdo (Markdown)</mat-label>
-            <textarea
-              #bodyInput
-              matInput
-              formControlName="body"
-              rows="18"
-              class="font-mono text-sm"
-            ></textarea>
-          </mat-form-field>
-          <div class="rounded border border-gray-200 p-4 overflow-auto">
-            <p class="mb-2 text-xs uppercase tracking-wide text-gray-400">Pré-visualização</p>
+          <div>
+            <!-- Barra de formatação Markdown: atua sobre a seleção no textarea. -->
+            <div
+              class="mb-1 flex flex-wrap gap-0.5 rounded-lg border border-gray-200 bg-gray-50 p-1 dark:border-gray-800 dark:bg-gray-900"
+              role="toolbar"
+              aria-label="Formatação Markdown"
+            >
+              @for (action of toolbar; track action.icon) {
+                <button
+                  type="button"
+                  (click)="applyAction(action)"
+                  [attr.aria-label]="action.label"
+                  [title]="action.label"
+                  class="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
+                >
+                  <span class="material-icons text-[18px]" aria-hidden="true">{{
+                    action.icon
+                  }}</span>
+                </button>
+              }
+            </div>
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Conteúdo (Markdown)</mat-label>
+              <textarea
+                #bodyInput
+                matInput
+                formControlName="body"
+                rows="18"
+                class="font-mono text-sm"
+              ></textarea>
+            </mat-form-field>
+          </div>
+          <div class="overflow-auto rounded-xl border border-gray-200 p-4 dark:border-gray-800">
+            <p class="mb-2 text-xs tracking-wide text-gray-400 uppercase dark:text-gray-500">
+              Pré-visualização
+            </p>
             <div class="markdown-body" [innerHTML]="bodyValue() | markdown"></div>
           </div>
         </div>
 
         <div class="flex gap-2">
-          <button matButton="filled" type="submit" [disabled]="loading()">Salvar</button>
+          <button matButton="filled" type="submit" [disabled]="loading()">
+            {{ submitLabel() }}
+          </button>
           <a matButton routerLink="/admin/posts">Cancelar</a>
         </div>
       </form>
@@ -224,9 +327,12 @@ export class PostForm {
 
   private readonly bodyInput = viewChild.required<ElementRef<HTMLTextAreaElement>>('bodyInput');
 
+  protected readonly toolbar = TOOLBAR_ACTIONS;
+  protected readonly maxTags = MAX_TAGS;
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly editingId = signal<string | null>(null);
+  protected readonly tags = signal<string[]>([]);
   protected readonly uploading = signal(false);
   protected readonly uploadError = signal<string | null>(null);
   protected readonly generating = signal(false);
@@ -243,6 +349,7 @@ export class PostForm {
     slug: [''],
     type: ['ARTICLE' as PostType, Validators.required],
     status: ['DRAFT' as PostStatus, Validators.required],
+    scheduledAt: [''],
     summary: [''],
     body: ['', Validators.required],
   });
@@ -250,6 +357,11 @@ export class PostForm {
   /** Espelha o corpo em um signal para alimentar a pré-visualização sob OnPush. */
   protected readonly bodyValue = toSignal(this.form.controls.body.valueChanges, {
     initialValue: '',
+  });
+
+  /** Espelha o status para alternar o campo de agendamento e o rótulo do botão. */
+  protected readonly statusValue = toSignal(this.form.controls.status.valueChanges, {
+    initialValue: 'DRAFT' as PostStatus,
   });
 
   constructor() {
@@ -260,14 +372,29 @@ export class PostForm {
     }
   }
 
+  protected submitLabel(): string {
+    switch (this.statusValue()) {
+      case 'PUBLISHED':
+        return 'Salvar e publicar';
+      case 'SCHEDULED':
+        return 'Salvar e agendar';
+      default:
+        return 'Salvar rascunho';
+    }
+  }
+
   protected submit(): void {
     if (this.form.invalid || this.loading()) {
+      return;
+    }
+    const raw = this.form.getRawValue();
+    if (raw.status === 'SCHEDULED' && !raw.scheduledAt) {
+      this.error.set('Informe o horário de publicação para agendar.');
       return;
     }
     this.loading.set(true);
     this.error.set(null);
 
-    const raw = this.form.getRawValue();
     const request: PostRequest = {
       title: raw.title,
       type: raw.type,
@@ -275,6 +402,11 @@ export class PostForm {
       summary: raw.summary.trim() ? raw.summary : null,
       body: raw.body,
       slug: raw.slug.trim() || undefined,
+      tags: this.tags(),
+      scheduledAt:
+        raw.status === 'SCHEDULED' && raw.scheduledAt
+          ? new Date(raw.scheduledAt).toISOString()
+          : null,
     };
 
     const id = this.editingId();
@@ -287,6 +419,71 @@ export class PostForm {
       },
     });
   }
+
+  // --- Tags ---
+
+  protected onTagKeydown(event: KeyboardEvent): void {
+    const input = event.target as HTMLInputElement;
+    if (event.key === 'Enter' || event.key === ',') {
+      event.preventDefault();
+      this.addTag(input.value);
+      input.value = '';
+    } else if (event.key === 'Backspace' && !input.value && this.tags().length) {
+      this.tags.update((tags) => tags.slice(0, -1));
+    }
+  }
+
+  protected addTag(value: string): void {
+    const tag = value.trim().toLowerCase().replace(/\s+/g, ' ').replace(/,/g, '');
+    if (!tag || this.tags().includes(tag) || this.tags().length >= MAX_TAGS) {
+      return;
+    }
+    this.tags.update((tags) => [...tags, tag]);
+  }
+
+  protected removeTag(tag: string): void {
+    this.tags.update((tags) => tags.filter((t) => t !== tag));
+  }
+
+  // --- Barra de formatação Markdown ---
+
+  protected applyAction(action: ToolbarAction): void {
+    const el = this.bodyInput().nativeElement;
+    const value = this.form.controls.body.value;
+    const start = el.selectionStart ?? value.length;
+    const end = el.selectionEnd ?? start;
+
+    if (action.block) {
+      // Prefixa o início da linha corrente (título, citação, lista).
+      const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+      this.form.controls.body.setValue(
+        value.slice(0, lineStart) + action.prefix + value.slice(lineStart),
+      );
+      this.restoreSelection(start + action.prefix.length, end + action.prefix.length);
+      return;
+    }
+
+    const selected = value.slice(start, end);
+    const suffix = action.suffix ?? '';
+    this.form.controls.body.setValue(
+      value.slice(0, start) + action.prefix + selected + suffix + value.slice(end),
+    );
+    // Sem seleção, o cursor fica entre os marcadores; com seleção, depois do sufixo.
+    const caret = selected
+      ? end + action.prefix.length + suffix.length
+      : start + action.prefix.length;
+    this.restoreSelection(caret, caret);
+  }
+
+  private restoreSelection(start: number, end: number): void {
+    const el = this.bodyInput().nativeElement;
+    setTimeout(() => {
+      el.focus();
+      el.setSelectionRange(start, end);
+    });
+  }
+
+  // --- IA (RF04/RF05) e mídia (RF03) ---
 
   /** RF04 — gera um rascunho a partir do tema (busca viva + IA) e preenche o formulário. */
   protected generateDraft(theme: string): void {
@@ -387,12 +584,7 @@ export class PostForm {
     const end = el.selectionEnd ?? start;
     const current = this.form.controls.body.value;
     this.form.controls.body.setValue(current.slice(0, start) + snippet + current.slice(end));
-
-    const caret = start + snippet.length;
-    setTimeout(() => {
-      el.focus();
-      el.setSelectionRange(caret, caret);
-    });
+    this.restoreSelection(start + snippet.length, start + snippet.length);
   }
 
   private loadPost(id: string): void {
@@ -404,9 +596,11 @@ export class PostForm {
           slug: post.slug,
           type: post.type,
           status: post.status,
+          scheduledAt: post.scheduledAt ? this.toLocalInput(post.scheduledAt) : '',
           summary: post.summary ?? '',
           body: post.body,
         });
+        this.tags.set(post.tags);
         this.loading.set(false);
       },
       error: () => {
@@ -414,5 +608,15 @@ export class PostForm {
         this.loading.set(false);
       },
     });
+  }
+
+  /** Converte um ISO-8601 para o formato local aceito por <input type="datetime-local">. */
+  private toLocalInput(iso: string): string {
+    const date = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return (
+      `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+      `T${pad(date.getHours())}:${pad(date.getMinutes())}`
+    );
   }
 }

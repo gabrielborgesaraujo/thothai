@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { Meta, Title } from '@angular/platform-browser';
+import { RouterLink } from '@angular/router';
 import { ProfileService } from '../../../core/profile/profile.service';
 import { PortfolioService } from '../../../core/profile/portfolio.service';
 import { PortfolioEntry, Profile } from '../../../core/profile/profile.models';
@@ -12,6 +13,7 @@ import { setJsonLd } from '../../../core/seo/json-ld';
  */
 @Component({
   selector: 'app-home',
+  imports: [RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (profile(); as p) {
@@ -22,59 +24,84 @@ import { setJsonLd } from '../../../core/seo/json-ld';
             [alt]="p.displayName"
             width="120"
             height="120"
-            class="size-30 rounded-full object-cover border border-gray-200"
+            class="size-30 rounded-full border border-gray-200 object-cover shadow-sm dark:border-gray-700"
           />
         }
         <div class="text-center sm:text-left">
-          <h1 class="text-3xl font-semibold tracking-tight">{{ p.displayName }}</h1>
+          <h1 class="text-3xl font-bold tracking-tight sm:text-4xl">{{ p.displayName }}</h1>
           @if (p.headline) {
-            <p class="mt-1 text-lg text-gray-600">{{ p.headline }}</p>
+            <p class="mt-1 text-lg text-indigo-600 dark:text-indigo-400">{{ p.headline }}</p>
           }
           @if (p.bio) {
-            <p class="mt-3 text-gray-700">{{ p.bio }}</p>
+            <p class="mt-3 leading-relaxed text-gray-700 dark:text-gray-300">{{ p.bio }}</p>
           }
-          @if (p.linkedinUrl || p.email) {
-            <div class="mt-4 flex justify-center gap-3 sm:justify-start">
-              @if (p.linkedinUrl) {
-                <a
-                  [href]="p.linkedinUrl"
-                  target="_blank"
-                  rel="noopener"
-                  class="rounded bg-gray-900 px-4 py-2 text-sm text-white hover:bg-gray-700"
-                  >LinkedIn</a
-                >
-              }
-              @if (p.email) {
-                <a
-                  [href]="'mailto:' + p.email"
-                  class="rounded border border-gray-300 px-4 py-2 text-sm text-gray-800 hover:bg-gray-50"
-                  >E-mail</a
-                >
-              }
-            </div>
-          }
+          <div class="mt-5 flex flex-wrap justify-center gap-3 sm:justify-start">
+            @if (p.linkedinUrl) {
+              <a
+                [href]="p.linkedinUrl"
+                target="_blank"
+                rel="noopener"
+                class="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+                >LinkedIn</a
+              >
+            }
+            @if (p.email) {
+              <a
+                [href]="'mailto:' + p.email"
+                class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                >E-mail</a
+              >
+            }
+            <a
+              routerLink="/posts"
+              class="rounded-lg border border-indigo-200 px-4 py-2 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-50 dark:border-indigo-900 dark:text-indigo-300 dark:hover:bg-indigo-950"
+              >Publicações →</a
+            >
+          </div>
         </div>
       </section>
+
+      @if (skills().length) {
+        <section class="mt-12">
+          <h2 class="mb-4 text-xl font-semibold tracking-tight">Skills</h2>
+          <ul class="flex flex-wrap gap-2">
+            @for (skill of skills(); track skill.id) {
+              <li
+                class="rounded-full border border-gray-300 px-3 py-1 text-sm text-gray-700 dark:border-gray-700 dark:text-gray-300"
+                [title]="skill.description ?? ''"
+              >
+                {{ skill.title }}
+              </li>
+            }
+          </ul>
+        </section>
+      }
 
       @if (groups().length) {
         <div class="mt-12 flex flex-col gap-10">
           @for (group of groups(); track group.label) {
             <section>
               <h2 class="mb-4 text-xl font-semibold tracking-tight">{{ group.label }}</h2>
-              <ul class="flex flex-col gap-4">
+              <ul
+                class="flex flex-col gap-6 border-l-2 border-gray-200 pl-5 dark:border-gray-800"
+              >
                 @for (entry of group.items; track entry.id) {
                   <li>
                     <div class="flex flex-wrap justify-between gap-2">
                       <h3 class="font-medium">{{ entry.title }}</h3>
                       @if (period(entry)) {
-                        <span class="text-sm text-gray-400">{{ period(entry) }}</span>
+                        <span class="text-sm text-gray-400 dark:text-gray-500">{{
+                          period(entry)
+                        }}</span>
                       }
                     </div>
                     @if (entry.organization) {
-                      <p class="text-sm text-gray-600">{{ entry.organization }}</p>
+                      <p class="text-sm text-gray-600 dark:text-gray-400">
+                        {{ entry.organization }}
+                      </p>
                     }
                     @if (entry.description) {
-                      <p class="mt-1 text-gray-700">{{ entry.description }}</p>
+                      <p class="mt-1 text-gray-700 dark:text-gray-300">{{ entry.description }}</p>
                     }
                   </li>
                 }
@@ -85,8 +112,8 @@ import { setJsonLd } from '../../../core/seo/json-ld';
       }
     } @else {
       <section class="py-8">
-        <h1 class="text-3xl font-semibold tracking-tight">ThothAI</h1>
-        <p class="mt-3 text-gray-600">Hub de conteúdo técnico. Em construção.</p>
+        <h1 class="text-3xl font-bold tracking-tight">ThothAI</h1>
+        <p class="mt-3 text-gray-600 dark:text-gray-400">Hub de conteúdo técnico. Em construção.</p>
       </section>
     }
   `,
@@ -101,12 +128,16 @@ export class Home {
   protected readonly profile = signal<Profile | null>(null);
   private readonly entries = signal<PortfolioEntry[]>([]);
 
+  /** Skills renderizadas como chips; experiência e formação como linha do tempo. */
+  protected readonly skills = computed(() =>
+    this.entries().filter((e) => e.category === 'SKILL'),
+  );
+
   protected readonly groups = computed(() => {
     const list = this.entries();
     return [
       { label: 'Experiência', items: list.filter((e) => e.category === 'EXPERIENCE') },
       { label: 'Formação', items: list.filter((e) => e.category === 'EDUCATION') },
-      { label: 'Skills', items: list.filter((e) => e.category === 'SKILL') },
     ].filter((group) => group.items.length > 0);
   });
 

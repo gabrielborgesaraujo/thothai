@@ -28,12 +28,12 @@ const CATEGORY_LABELS: Record<PortfolioCategory, string> = {
       <mat-progress-bar mode="indeterminate" />
     }
     @if (error()) {
-      <p class="text-sm text-red-600 my-2" role="alert">{{ error() }}</p>
+      <p class="text-sm text-red-600 dark:text-red-400 my-2" role="alert">{{ error() }}</p>
     }
 
     @if (entries(); as list) {
       @if (list.length === 0) {
-        <p class="text-gray-500">Nenhuma entrada ainda.</p>
+        <p class="text-gray-500 dark:text-gray-400">Nenhuma entrada ainda.</p>
       } @else {
         <table mat-table [dataSource]="list" class="w-full">
           <ng-container matColumnDef="category">
@@ -51,7 +51,7 @@ const CATEGORY_LABELS: Record<PortfolioCategory, string> = {
             <td mat-cell *matCellDef="let e">
               <span
                 class="inline-block rounded px-2 py-0.5 text-xs"
-                [class]="e.visible ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'"
+                [class]="e.visible ? 'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'"
                 >{{ e.visible ? 'Sim' : 'Oculta' }}</span
               >
             </td>
@@ -66,7 +66,7 @@ const CATEGORY_LABELS: Record<PortfolioCategory, string> = {
             <th mat-header-cell *matHeaderCellDef class="text-right">Ações</th>
             <td mat-cell *matCellDef="let e" class="text-right whitespace-nowrap">
               @if (pendingDelete() === e.id) {
-                <span class="text-sm text-gray-600 mr-1">Excluir?</span>
+                <span class="text-sm text-gray-600 dark:text-gray-300 mr-1">Excluir?</span>
                 <button matButton (click)="confirmDelete(e.id)">Sim</button>
                 <button matButton (click)="pendingDelete.set(null)">Não</button>
               } @else {

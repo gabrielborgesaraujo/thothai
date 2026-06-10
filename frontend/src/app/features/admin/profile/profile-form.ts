@@ -29,10 +29,10 @@ import { MediaService } from '../../../core/media/media.service';
         <mat-progress-bar mode="indeterminate" />
       }
       @if (error()) {
-        <p class="text-sm text-red-600 my-2" role="alert">{{ error() }}</p>
+        <p class="text-sm text-red-600 dark:text-red-400 my-2" role="alert">{{ error() }}</p>
       }
       @if (saved()) {
-        <p class="text-sm text-green-700 my-2" role="status">Perfil salvo.</p>
+        <p class="text-sm text-green-700 dark:text-green-400 my-2" role="status">Perfil salvo.</p>
       }
 
       <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-3 pt-2">
@@ -43,10 +43,10 @@ import { MediaService } from '../../../core/media/media.service';
               alt="Foto do perfil"
               width="72"
               height="72"
-              class="size-18 rounded-full object-cover border border-gray-200"
+              class="size-18 rounded-full object-cover border border-gray-200 dark:border-gray-700"
             />
           } @else {
-            <div class="size-18 rounded-full bg-gray-100 grid place-items-center text-gray-400">
+            <div class="size-18 rounded-full bg-gray-100 grid place-items-center text-gray-400 dark:bg-gray-800 dark:text-gray-500">
               <mat-icon>person</mat-icon>
             </div>
           }

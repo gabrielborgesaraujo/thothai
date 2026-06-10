@@ -1,7 +1,15 @@
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from '../api.service';
-import { Page, Post, PostRequest, PostStats, PostSummary, PublicPost } from './post.models';
+import {
+  Page,
+  Post,
+  PostFilters,
+  PostRequest,
+  PostStats,
+  PostSummary,
+  PublicPost,
+} from './post.models';
 
 /**
  * Acesso às postagens (RF02 admin e RF06 público) sobre o [ApiService], que já prefixa `/api` e
@@ -12,8 +20,14 @@ export class PostService {
   private readonly api = inject(ApiService);
 
   // --- Painel administrativo (RF02) ---
-  listAdmin(page = 0, size = 20): Observable<Page<PostSummary>> {
-    return this.api.get<Page<PostSummary>>('/admin/posts', { page, size });
+  listAdmin(page = 0, size = 20, filters: PostFilters = {}): Observable<Page<PostSummary>> {
+    return this.api.get<Page<PostSummary>>('/admin/posts', {
+      page,
+      size,
+      status: filters.status,
+      type: filters.type,
+      q: filters.q?.trim() || undefined,
+    });
   }
 
   stats(): Observable<PostStats> {
@@ -37,8 +51,18 @@ export class PostService {
   }
 
   // --- Portal público (RF06) ---
-  listPublished(page = 0, size = 10): Observable<Page<PostSummary>> {
-    return this.api.get<Page<PostSummary>>('/posts', { page, size });
+  listPublished(page = 0, size = 10, q?: string, tag?: string): Observable<Page<PostSummary>> {
+    return this.api.get<Page<PostSummary>>('/posts', {
+      page,
+      size,
+      q: q?.trim() || undefined,
+      tag: tag || undefined,
+    });
+  }
+
+  /** Tags em uso nos posts publicados (chips de filtro do portal). */
+  publishedTags(): Observable<string[]> {
+    return this.api.get<string[]>('/posts/tags');
   }
 
   getPublished(slug: string): Observable<PublicPost> {

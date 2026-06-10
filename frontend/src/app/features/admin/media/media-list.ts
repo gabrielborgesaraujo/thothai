@@ -17,27 +17,27 @@ import { MediaSummary } from '../../../core/media/media.models';
       <mat-progress-bar mode="indeterminate" />
     }
     @if (error()) {
-      <p class="text-sm text-red-600 my-2" role="alert">{{ error() }}</p>
+      <p class="text-sm text-red-600 dark:text-red-400 my-2" role="alert">{{ error() }}</p>
     }
 
     @if (media(); as items) {
       @if (items.length === 0) {
-        <p class="text-gray-500">Nenhuma mídia enviada ainda.</p>
+        <p class="text-gray-500 dark:text-gray-400">Nenhuma mídia enviada ainda.</p>
       } @else {
         <ul class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
           @for (item of items; track item.id) {
-            <li class="rounded border border-gray-200 p-2">
+            <li class="rounded-lg border border-gray-200 p-2 dark:border-gray-800">
               <img
                 [src]="item.url"
                 [alt]="item.originalFilename ?? 'Mídia'"
                 width="200"
                 height="128"
-                class="h-32 w-full rounded object-cover bg-gray-50"
+                class="h-32 w-full rounded object-cover bg-gray-50 dark:bg-gray-900"
               />
-              <p class="mt-2 truncate text-xs text-gray-600" [title]="item.originalFilename ?? ''">
+              <p class="mt-2 truncate text-xs text-gray-600 dark:text-gray-400" [title]="item.originalFilename ?? ''">
                 {{ item.originalFilename ?? item.id }}
               </p>
-              <p class="text-xs text-gray-400">
+              <p class="text-xs text-gray-400 dark:text-gray-500">
                 {{ item.sizeBytes | number }} bytes
                 @if (item.createdAt) {
                   · {{ item.createdAt | date: 'shortDate' }}
@@ -45,7 +45,7 @@ import { MediaSummary } from '../../../core/media/media.models';
               </p>
               @if (pendingDelete() === item.id) {
                 <div class="mt-1 flex items-center gap-1">
-                  <span class="text-xs text-gray-600">Excluir?</span>
+                  <span class="text-xs text-gray-600 dark:text-gray-300">Excluir?</span>
                   <button matButton (click)="confirmDelete(item.id)">Sim</button>
                   <button matButton (click)="pendingDelete.set(null)">Não</button>
                 </div>

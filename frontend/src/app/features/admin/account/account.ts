@@ -25,10 +25,10 @@ import { AuthService } from '../../../core/auth/auth.service';
         <mat-progress-bar mode="indeterminate" />
       }
       @if (error()) {
-        <p class="text-sm text-red-600 my-2" role="alert">{{ error() }}</p>
+        <p class="text-sm text-red-600 dark:text-red-400 my-2" role="alert">{{ error() }}</p>
       }
       @if (saved()) {
-        <p class="text-sm text-green-700 my-2" role="status">Senha alterada.</p>
+        <p class="text-sm text-green-700 dark:text-green-400 my-2" role="status">Senha alterada.</p>
       }
 
       <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-3 pt-2">
