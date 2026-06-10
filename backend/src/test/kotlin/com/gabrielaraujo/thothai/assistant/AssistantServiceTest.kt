@@ -21,6 +21,42 @@ class AssistantServiceTest {
     ) = AssistantService(llm, search, mapper)
 
     @Test
+    fun `gera rascunho a partir do formato delimitado`() {
+        val resposta =
+            """
+            TITULO: Mudanças do Angular 21
+            RESUMO: O Angular 21 consolida os Signals como o "mindset padrão" do framework.
+            CONTEUDO:
+            ## Destaques
+
+            Os Signals viram o "mindset padrão" [^1] — aspas e Markdown livres, sem escaping.
+
+            [^1]: fonte
+            """.trimIndent()
+        val svc = service(llm = { _, _, _ -> resposta })
+
+        val draft = svc.generateDraft("angular 21")
+
+        assertEquals("Mudanças do Angular 21", draft.title)
+        assertEquals("O Angular 21 consolida os Signals como o \"mindset padrão\" do framework.", draft.summary)
+        assertTrue(draft.body.startsWith("## Destaques"))
+        assertTrue(draft.body.contains("\"mindset padrão\""))
+        assertTrue(!draft.body.contains("TITULO:"))
+    }
+
+    @Test
+    fun `formato delimitado dentro de cerca de codigo tambem e aceito`() {
+        val resposta = "```\nTITULO: Post\nRESUMO: Resumo curto.\nCONTEUDO:\nCorpo do artigo.\n```"
+        val svc = service(llm = { _, _, _ -> resposta })
+
+        val draft = svc.generateDraft("tema")
+
+        assertEquals("Post", draft.title)
+        assertEquals("Resumo curto.", draft.summary)
+        assertEquals("Corpo do artigo.", draft.body)
+    }
+
+    @Test
     fun `gera rascunho a partir do JSON do LLM`() {
         val svc =
             service(

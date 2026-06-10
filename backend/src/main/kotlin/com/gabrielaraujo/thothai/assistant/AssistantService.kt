@@ -33,10 +33,7 @@ internal class AssistantService(
                     append("Contexto encontrado na web (use como base, cite quando relevante):\n")
                     append(context).append("\n\n")
                 }
-                append(
-                    "Gere um rascunho técnico em português. Responda APENAS com um objeto JSON " +
-                        "{\"title\": ..., \"summary\": ..., \"body\": ...}, onde body é o conteúdo em Markdown.",
-                )
+                append("Gere um rascunho técnico em português, no formato de saída especificado.")
             }
 
         val raw = llm.complete(DRAFT_SYSTEM, user, maxTokens = 4096)
@@ -69,25 +66,72 @@ internal class AssistantService(
         return SnippetResponse(llm.complete(SNIPPET_SYSTEM, user, maxTokens = 512))
     }
 
+    /**
+     * Parse tolerante do rascunho, em camadas: 1) formato delimitado (pedido no prompt — imune a
+     * problemas de escaping que quebravam o JSON com aspas no Markdown); 2) JSON, para modelos que
+     * ignoram a instrução; 3) texto cru como corpo.
+     */
     private fun parseDraft(
         raw: String,
         fallbackTitle: String,
     ): ParsedDraft {
-        extractJson(raw, '{', '}')?.let { json ->
-            runCatching {
-                @Suppress("UNCHECKED_CAST")
-                val map = objectMapper.readValue(json, Map::class.java) as Map<String, Any?>
-                val body = (map["body"] as? String)?.takeIf { it.isNotBlank() }
-                if (body != null) {
-                    return ParsedDraft(
-                        title = (map["title"] as? String)?.takeIf { it.isNotBlank() } ?: fallbackTitle,
-                        summary = (map["summary"] as? String)?.takeIf { it.isNotBlank() },
-                        body = body,
-                    )
-                }
-            }
+        parseDelimitedDraft(raw)?.let { return it }
+        parseJsonDraft(raw, fallbackTitle)?.let { return it }
+        return ParsedDraft(fallbackTitle, summary = null, body = stripCodeFence(raw.trim()))
+    }
+
+    /** Formato `TITULO:` / `RESUMO:` / `CONTEUDO:` — o corpo vai do marcador até o fim. */
+    private fun parseDelimitedDraft(raw: String): ParsedDraft? {
+        val cleaned = stripCodeFence(raw.trim())
+        val parts = BODY_MARKER.split(cleaned, limit = 2)
+        if (parts.size != 2) {
+            return null
         }
-        return ParsedDraft(fallbackTitle, summary = null, body = raw.trim())
+        val header = parts[0]
+        val body = parts[1].trim()
+        val title =
+            TITLE_MARKER
+                .find(header)
+                ?.groupValues
+                ?.get(1)
+                ?.trim()
+        if (body.isBlank() || title.isNullOrBlank()) {
+            return null
+        }
+        val summary =
+            SUMMARY_MARKER
+                .find(header)
+                ?.groupValues
+                ?.get(1)
+                ?.replace(Regex("\\s+"), " ")
+                ?.trim()
+        return ParsedDraft(title, summary?.takeIf { it.isNotBlank() }, body)
+    }
+
+    private fun parseJsonDraft(
+        raw: String,
+        fallbackTitle: String,
+    ): ParsedDraft? {
+        val json = extractJson(raw, '{', '}') ?: return null
+        return runCatching {
+            @Suppress("UNCHECKED_CAST")
+            val map = objectMapper.readValue(json, Map::class.java) as Map<String, Any?>
+            val body = (map["body"] as? String)?.takeIf { it.isNotBlank() } ?: return null
+            ParsedDraft(
+                title = (map["title"] as? String)?.takeIf { it.isNotBlank() } ?: fallbackTitle,
+                summary = (map["summary"] as? String)?.takeIf { it.isNotBlank() },
+                body = body,
+            )
+        }.getOrNull()
+    }
+
+    /** Remove uma cerca de código que envolva a resposta inteira (```...```). */
+    private fun stripCodeFence(raw: String): String {
+        if (!raw.startsWith("```")) {
+            return raw
+        }
+        val withoutOpening = raw.substringAfter('\n', missingDelimiterValue = "")
+        return withoutOpening.substringBeforeLast("```").trim().ifBlank { raw }
     }
 
     private fun parseRecommendations(raw: String): List<String> {
@@ -129,9 +173,21 @@ internal class AssistantService(
     )
 
     private companion object {
+        /** Marcadores do formato delimitado do rascunho (tolerantes a acento e caixa). */
+        val TITLE_MARKER = Regex("(?im)^\\s*T[IÍ]TULO:\\s*(.+)$")
+        val SUMMARY_MARKER = Regex("(?is)RESUMO:\\s*(.+)\\z")
+        val BODY_MARKER = Regex("(?im)^\\s*CONTE[UÚ]DO:\\s*$")
+
         const val DRAFT_SYSTEM =
             "Você é um assistente de escrita técnica. Estruture rascunhos claros, corretos e bem " +
-                "organizados em Markdown. Responda somente com o JSON solicitado, sem texto extra."
+                "organizados em Markdown. Responda EXATAMENTE neste formato, sem nenhum texto antes " +
+                "ou depois e sem envolver a resposta em cercas de código:\n" +
+                "TITULO: <título do artigo em uma linha>\n" +
+                "RESUMO: <resumo de até duas frases, em uma única linha>\n" +
+                "CONTEUDO:\n" +
+                "<o artigo completo em Markdown>\n" +
+                "Não repita o título como cabeçalho no início do conteúdo — comece direto no texto " +
+                "ou na primeira seção (##)."
         const val REVIEW_SYSTEM =
             "Você é um revisor técnico. Analise o texto e gere recomendações objetivas de correção " +
                 "ortográfica, gramatical e de vocabulário técnico. Responda somente com um array JSON de " +
