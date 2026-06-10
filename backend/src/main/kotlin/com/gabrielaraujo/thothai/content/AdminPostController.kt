@@ -29,7 +29,11 @@ internal class AdminPostController(
     fun list(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
-    ): PageResponse<PostSummaryResponse> = PageResponse.from(postService.list(PageRequest.of(page, size))) { it.toSummary() }
+        @RequestParam(required = false) status: PostStatus?,
+        @RequestParam(required = false) type: PostType?,
+        @RequestParam(required = false) q: String?,
+    ): PageResponse<PostSummaryResponse> =
+        PageResponse.from(postService.list(PageRequest.of(page, size), status, type, q)) { it.toSummary() }
 
     @GetMapping("/stats")
     fun stats(): PostStatsResponse = postService.stats()

@@ -21,7 +21,14 @@ internal class PublicPostController(
     fun list(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "10") size: Int,
-    ): PageResponse<PostSummaryResponse> = PageResponse.from(postService.listPublished(PageRequest.of(page, size))) { it.toSummary() }
+        @RequestParam(required = false) q: String?,
+        @RequestParam(required = false) tag: String?,
+    ): PageResponse<PostSummaryResponse> =
+        PageResponse.from(postService.listPublished(PageRequest.of(page, size), q, tag)) { it.toSummary() }
+
+    /** Tags em uso nos posts publicados — alimenta os chips de filtro do portal. */
+    @GetMapping("/tags")
+    fun tags(): List<String> = postService.publishedTags()
 
     @GetMapping("/{slug}")
     fun get(

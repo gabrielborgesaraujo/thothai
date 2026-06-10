@@ -1,6 +1,7 @@
 package com.gabrielaraujo.thothai.content
 
 import com.gabrielaraujo.thothai.TestcontainersConfiguration
+import com.gabrielaraujo.thothai.shared.InvalidRequestException
 import com.gabrielaraujo.thothai.shared.ResourceNotFoundException
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -8,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.data.domain.PageRequest
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
@@ -84,11 +87,81 @@ class PostManagementTests {
         postService.create(request(title = "A", status = PostStatus.DRAFT))
         postService.create(request(title = "B", status = PostStatus.PUBLISHED))
         postService.create(request(title = "C", status = PostStatus.PUBLISHED))
+        postService.create(
+            request(title = "D", status = PostStatus.SCHEDULED, scheduledAt = Instant.now().plus(1, ChronoUnit.DAYS)),
+        )
 
         val stats = postService.stats()
         assertEquals(1, stats.draft)
+        assertEquals(1, stats.scheduled)
         assertEquals(2, stats.published)
-        assertEquals(3, stats.total)
+        assertEquals(4, stats.total)
+    }
+
+    @Test
+    fun `filtra a listagem admin por status, tipo e termo de busca`() {
+        postService.create(request(title = "Kotlin Coroutines", status = PostStatus.PUBLISHED, type = PostType.ARTICLE))
+        postService.create(request(title = "Spring Modulith na prática", status = PostStatus.DRAFT, type = PostType.TUTORIAL))
+        postService.create(request(title = "Nota sobre Kotlin", status = PostStatus.DRAFT, type = PostType.NOTE))
+
+        assertEquals(2, postService.list(PageRequest.of(0, 10), status = PostStatus.DRAFT).totalElements)
+        assertEquals(1, postService.list(PageRequest.of(0, 10), type = PostType.TUTORIAL).totalElements)
+        assertEquals(2, postService.list(PageRequest.of(0, 10), query = "kotlin").totalElements)
+        assertEquals(
+            1,
+            postService.list(PageRequest.of(0, 10), status = PostStatus.PUBLISHED, query = "KOTLIN").totalElements,
+        )
+    }
+
+    @Test
+    fun `normaliza tags e filtra a listagem publica por tag e busca`() {
+        postService.create(
+            request(title = "Post de Kotlin", status = PostStatus.PUBLISHED, tags = listOf(" Kotlin ", "jvm", "kotlin")),
+        )
+        postService.create(request(title = "Post de Angular", status = PostStatus.PUBLISHED, tags = listOf("Angular")))
+        postService.create(request(title = "Rascunho de Rust", status = PostStatus.DRAFT, tags = listOf("rust")))
+
+        val kotlinPosts = postService.listPublished(PageRequest.of(0, 10), tag = "kotlin")
+        assertEquals(1, kotlinPosts.totalElements)
+        assertEquals(setOf("kotlin", "jvm"), kotlinPosts.content.first().tags)
+
+        assertEquals(1, postService.listPublished(PageRequest.of(0, 10), query = "angular").totalElements)
+        // Tags de rascunhos não vazam para o portal público.
+        assertEquals(listOf("angular", "jvm", "kotlin"), postService.publishedTags())
+    }
+
+    @Test
+    fun `agendamento exige horario e o job publica posts vencidos`() {
+        assertFailsWith<InvalidRequestException> {
+            postService.create(request(title = "Sem horário", status = PostStatus.SCHEDULED))
+        }
+
+        // Truncado a micros: o TIMESTAMPTZ do Postgres não preserva nanossegundos.
+        val past = Instant.now().minus(1, ChronoUnit.HOURS).truncatedTo(ChronoUnit.MICROS)
+        val future = Instant.now().plus(1, ChronoUnit.DAYS)
+        val due = postService.create(request(title = "Vencido", status = PostStatus.SCHEDULED, scheduledAt = past))
+        postService.create(request(title = "Futuro", status = PostStatus.SCHEDULED, scheduledAt = future))
+
+        assertEquals(1, postService.publishDueScheduled())
+
+        val published = postService.get(requireNotNull(due.id))
+        assertEquals(PostStatus.PUBLISHED, published.status)
+        assertEquals(past, published.publishedAt)
+        assertNull(published.scheduledAt)
+        // O segundo continua aguardando.
+        assertEquals(1, postService.stats().scheduled)
+    }
+
+    @Test
+    fun `voltar para rascunho limpa o agendamento`() {
+        val post =
+            postService.create(
+                request(title = "Agendado", status = PostStatus.SCHEDULED, scheduledAt = Instant.now().plus(1, ChronoUnit.DAYS)),
+            )
+
+        val draft = postService.update(requireNotNull(post.id), request(title = "Agendado", status = PostStatus.DRAFT))
+        assertEquals(PostStatus.DRAFT, draft.status)
+        assertNull(draft.scheduledAt)
     }
 
     @Test
@@ -104,11 +177,15 @@ class PostManagementTests {
         type: PostType = PostType.ARTICLE,
         summary: String? = "resumo",
         body: String = "conteúdo em **markdown**",
+        tags: List<String> = emptyList(),
+        scheduledAt: Instant? = null,
     ) = PostRequest(
         title = title,
         type = type,
         status = status,
         summary = summary,
         body = body,
+        tags = tags,
+        scheduledAt = scheduledAt,
     )
 }

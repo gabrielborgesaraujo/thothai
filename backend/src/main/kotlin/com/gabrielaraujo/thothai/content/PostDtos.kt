@@ -18,6 +18,14 @@ data class PostRequest(
     val body: String,
     @field:Size(max = 255)
     val slug: String? = null,
+    /** Tags livres (normalizadas para minúsculas no serviço). */
+    @field:Size(max = 10)
+    val tags: List<
+        @Size(max = 64)
+        String,
+    > = emptyList(),
+    /** Obrigatório quando `status` é SCHEDULED; ignorado nos demais. */
+    val scheduledAt: Instant? = null,
 )
 
 /** Representação completa de uma postagem para o painel admin. */
@@ -29,7 +37,9 @@ data class PostResponse(
     val status: PostStatus,
     val summary: String?,
     val body: String,
+    val tags: List<String>,
     val publishedAt: Instant?,
+    val scheduledAt: Instant?,
     val createdAt: Instant?,
     val updatedAt: Instant?,
 )
@@ -42,12 +52,15 @@ data class PostSummaryResponse(
     val type: PostType,
     val status: PostStatus,
     val summary: String?,
+    val tags: List<String>,
     val publishedAt: Instant?,
+    val scheduledAt: Instant?,
 )
 
 /** Contadores para o dashboard do admin. */
 data class PostStatsResponse(
     val draft: Long,
+    val scheduled: Long,
     val published: Long,
     val total: Long,
 )
@@ -59,6 +72,7 @@ data class PublicPostResponse(
     val type: PostType,
     val summary: String?,
     val body: String,
+    val tags: List<String>,
     val publishedAt: Instant?,
 )
 
@@ -71,7 +85,9 @@ internal fun Post.toResponse() =
         status = status,
         summary = summary,
         body = body,
+        tags = tags.sorted(),
         publishedAt = publishedAt,
+        scheduledAt = scheduledAt,
         createdAt = createdAt,
         updatedAt = updatedAt,
     )
@@ -84,7 +100,9 @@ internal fun Post.toSummary() =
         type = type,
         status = status,
         summary = summary,
+        tags = tags.sorted(),
         publishedAt = publishedAt,
+        scheduledAt = scheduledAt,
     )
 
 internal fun Post.toPublic() =
@@ -94,5 +112,6 @@ internal fun Post.toPublic() =
         type = type,
         summary = summary,
         body = body,
+        tags = tags.sorted(),
         publishedAt = publishedAt,
     )
