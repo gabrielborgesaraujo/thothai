@@ -80,16 +80,18 @@ services:
       # não o reenvia e a sessão se perde após o login). Forçado aqui, ignorando o .env.
       SESSION_COOKIE_SECURE: "false"
       SESSION_TIMEOUT: ${SESSION_TIMEOUT:-30m}
-      # Origem do navegador = gateway (origem única).
-      FRONTEND_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:8088}
+      # Origem do navegador = gateway (origem única). Fixa em localhost de propósito:
+      # um .env de PRODUÇÃO na raiz (PUBLIC_ORIGIN=https://dominio) também é lido pelo
+      # compose de dev e, se herdado aqui, quebra o CORS com 403 em todos os POSTs.
+      FRONTEND_ORIGIN: http://localhost:${PUBLIC_PORT:-8088}
       # Base das URLs absolutas em feed.xml/sitemap.xml/robots.txt (SEO).
-      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:8088}
+      PUBLIC_ORIGIN: http://localhost:${PUBLIC_PORT:-8088}
       # Provedores externos (RF04/RF05) — opcionais (chaves vazias por padrão).
       AI_PROVIDER: ${AI_PROVIDER:-claude}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-4-8}
       SEARCH_PROVIDER: ${SEARCH_PROVIDER:-tavily}
-      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-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}
 
   frontend:
     build:
@@ -102,8 +104,9 @@ services:
       PORT: 4000
       # URL absoluta usada pelo SSR para buscar dados no backend (server-side).
       BACKEND_ORIGIN: http://backend:8080
-      # Hosts autorizados pelo SSR do Angular (allowlist anti-SSRF). localhost cobre o default.
-      NG_ALLOWED_HOSTS: ${NG_ALLOWED_HOSTS:-localhost}
+      # Hosts autorizados pelo SSR do Angular (allowlist anti-SSRF). Fixo em localhost:
+      # dev é sempre acessado via localhost e não deve herdar o domínio de um .env de produção.
+      NG_ALLOWED_HOSTS: localhost
 
   # Gateway de origem única: navegador -> :80; roteia / para o SSR e /api para o backend.
   gateway:
