@@ -1,0 +1,5 @@
+# Scripts shell precisam de LF mesmo em checkouts no Windows (senão o bash quebra na VPS).
+*.sh text eol=lf
+mvnw text eol=lf
+# Wrapper do Maven para Windows mantém CRLF.
+*.cmd text eol=crlf

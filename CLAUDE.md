@@ -133,6 +133,11 @@ copy .env.prod.example .env     # fill in all values
 docker compose -f docker-compose.prod.yml --env-file .env up -d --build
 ```
 
+For a Linux VPS behind Nginx Proxy Manager, [deploy/vps-deploy.sh](deploy/vps-deploy.sh) automates
+the prod deploy: it generates the `.env` interactively (strong secrets), builds/starts the stack,
+waits for health, and prints the NPM proxy-host setup. `update` re-pulls and redeploys.
+The gateway preserves an edge proxy's `X-Forwarded-Proto` (see the `map` in nginx.conf).
+
 - App: `http://localhost:8088` (host port is `PUBLIC_PORT`, default **8088** — port 80 is reserved
   by Windows http.sys). Admin login at `/admin/login` (seeded `ADMIN_USERNAME`/`ADMIN_PASSWORD`).
 - MinIO console: `http://localhost:9001`. Swagger: `http://localhost:8088/swagger-ui.html`.
