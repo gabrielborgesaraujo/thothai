@@ -1,55 +1,106 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
-import { MatCardModule } from '@angular/material/card';
+import { Router, RouterLink } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { AuthService } from '../../../core/auth/auth.service';
+import { ThemeToggle } from '../../../core/theme/theme-toggle';
 
 @Component({
   selector: 'app-login',
   imports: [
     ReactiveFormsModule,
-    MatCardModule,
+    RouterLink,
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
+    MatIconModule,
     MatProgressBarModule,
+    ThemeToggle,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="min-h-dvh grid place-items-center bg-gray-50 p-4 dark:bg-gray-950">
-      <mat-card class="w-full max-w-sm">
-        @if (loading()) {
-          <mat-progress-bar mode="indeterminate" />
-        }
-        <mat-card-header>
-          <mat-card-title>Entrar no painel</mat-card-title>
-        </mat-card-header>
-        <mat-card-content>
-          <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-2 pt-4">
+    <div
+      class="relative grid min-h-dvh place-items-center bg-gradient-to-br from-indigo-50 via-white to-gray-100 p-4 dark:from-gray-950 dark:via-gray-950 dark:to-indigo-950"
+    >
+      <div class="absolute top-4 right-4">
+        <app-theme-toggle />
+      </div>
+
+      <div class="w-full max-w-sm">
+        <div class="mb-6 text-center">
+          <a routerLink="/" class="text-3xl font-bold tracking-tight">
+            Thoth<span class="text-indigo-600 dark:text-indigo-400">AI</span>
+          </a>
+          <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            Seu hub de conteúdo e identidade digital
+          </p>
+        </div>
+
+        <div
+          class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-lg shadow-gray-200/60 dark:border-gray-800 dark:bg-gray-900 dark:shadow-black/30"
+        >
+          @if (loading()) {
+            <mat-progress-bar mode="indeterminate" />
+          }
+          <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-2 p-6">
+            <h1 class="mb-3 text-lg font-semibold">Entrar no painel</h1>
+
             <mat-form-field appearance="outline">
               <mat-label>Usuário</mat-label>
+              <mat-icon matPrefix class="text-gray-400">person</mat-icon>
               <input matInput formControlName="username" autocomplete="username" />
             </mat-form-field>
+
             <mat-form-field appearance="outline">
               <mat-label>Senha</mat-label>
+              <mat-icon matPrefix class="text-gray-400">lock</mat-icon>
               <input
                 matInput
-                type="password"
+                [type]="showPassword() ? 'text' : 'password'"
                 formControlName="password"
                 autocomplete="current-password"
               />
+              <button
+                matIconButton
+                matSuffix
+                type="button"
+                (click)="showPassword.set(!showPassword())"
+                [attr.aria-label]="showPassword() ? 'Ocultar senha' : 'Mostrar senha'"
+                [attr.aria-pressed]="showPassword()"
+              >
+                <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
             </mat-form-field>
+
             @if (error()) {
-              <p class="text-sm text-red-600 dark:text-red-400" role="alert">{{ error() }}</p>
+              <p
+                class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300"
+                role="alert"
+              >
+                {{ error() }}
+              </p>
             }
-            <button matButton="filled" type="submit" [disabled]="loading()">Entrar</button>
+
+            <button matButton="filled" type="submit" class="mt-2 w-full" [disabled]="loading()">
+              {{ loading() ? 'Entrando…' : 'Entrar' }}
+            </button>
           </form>
-        </mat-card-content>
-      </mat-card>
+        </div>
+
+        <p class="mt-6 text-center">
+          <a
+            routerLink="/"
+            class="inline-flex items-center gap-1 text-sm text-gray-500 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+          >
+            <mat-icon class="text-[16px]!">arrow_back</mat-icon>
+            Voltar ao site
+          </a>
+        </p>
+      </div>
     </div>
   `,
 })
@@ -60,6 +111,7 @@ export class Login {
 
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly showPassword = signal(false);
 
   protected readonly form = this.fb.group({
     username: ['', Validators.required],

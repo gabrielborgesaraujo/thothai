@@ -13,7 +13,7 @@ import { PostRequest, PostStatus, PostType } from '../../../../core/content/post
 import { AssistantService } from '../../../../core/assistant/assistant.service';
 import { MediaSummary } from '../../../../core/media/media.models';
 import { MediaPicker } from '../../media/media-picker';
-import { MarkdownEditor } from './markdown-editor';
+import { MarkdownEditor } from '../../../../shared/markdown-editor';
 
 const MAX_TAGS = 10;
 

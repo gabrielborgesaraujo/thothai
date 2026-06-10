@@ -17,7 +17,7 @@ import Image from '@tiptap/extension-image';
 import { TableKit } from '@tiptap/extension-table';
 import { Placeholder } from '@tiptap/extensions';
 import { Markdown } from 'tiptap-markdown';
-import { MediaService } from '../../../../core/media/media.service';
+import { MediaService } from '../core/media/media.service';
 
 /** Estado dos botões da toolbar, recalculado a cada transação do editor. */
 interface ToolbarState {
@@ -119,9 +119,11 @@ const EMPTY_STATE: ToolbarState = {
         <button type="button" title="Link (Ctrl+K)" aria-label="Inserir link" (click)="setLink()" [class]="buttonClass(state().link)">
           <span class="material-icons text-[18px]" aria-hidden="true">link</span>
         </button>
-        <button type="button" title="Imagem da galeria" aria-label="Inserir imagem" (click)="imageRequested.emit()" [class]="buttonClass(false)">
-          <span class="material-icons text-[18px]" aria-hidden="true">image</span>
-        </button>
+        @if (allowImages()) {
+          <button type="button" title="Imagem da galeria" aria-label="Inserir imagem" (click)="imageRequested.emit()" [class]="buttonClass(false)">
+            <span class="material-icons text-[18px]" aria-hidden="true">image</span>
+          </button>
+        }
         <button type="button" title="Tabela" aria-label="Inserir tabela" (click)="run('table')" [class]="buttonClass(state().table)">
           <span class="material-icons text-[18px]" aria-hidden="true">table_chart</span>
         </button>
@@ -160,6 +162,8 @@ export class MarkdownEditor {
 
   /** Markdown vindo do formulário (carregamento do post, rascunho gerado por IA…). */
   readonly value = input<string>('');
+  /** Desliga o botão de imagem e o upload por colar/arrastar (ex.: descrição de portfólio). */
+  readonly allowImages = input<boolean>(true);
   readonly valueChange = output<string>();
   /** Pede ao pai a abertura do seletor de mídias (a inserção volta via [insertImage]). */
   readonly imageRequested = output<void>();
@@ -337,6 +341,9 @@ export class MarkdownEditor {
 
   /** Upload de imagem colada/arrastada; retorna true para impedir o tratamento padrão. */
   private uploadFromEvent(files: FileList | null | undefined): boolean {
+    if (!this.allowImages()) {
+      return false;
+    }
     const file = Array.from(files ?? []).find((f) => f.type.startsWith('image/'));
     if (!file) {
       return false;

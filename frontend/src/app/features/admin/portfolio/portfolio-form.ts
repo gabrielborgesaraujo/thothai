@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -13,6 +14,7 @@ import {
   PortfolioEntry,
   PortfolioEntryRequest,
 } from '../../../core/profile/profile.models';
+import { MarkdownEditor } from '../../../shared/markdown-editor';
 
 /** Criação/edição de uma entrada de portfólio (RF08). */
 @Component({
@@ -26,6 +28,7 @@ import {
     MatCheckboxModule,
     MatButtonModule,
     MatProgressBarModule,
+    MarkdownEditor,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -67,10 +70,15 @@ import {
           <input matInput formControlName="organization" />
         </mat-form-field>
 
-        <mat-form-field appearance="outline">
-          <mat-label>Descrição</mat-label>
-          <textarea matInput formControlName="description" rows="3"></textarea>
-        </mat-form-field>
+        <!-- Descrição rica (Markdown via WYSIWYG); renderizada formatada no currículo público. -->
+        <div>
+          <p class="mb-1 text-xs font-medium text-gray-500 dark:text-gray-400">Descrição</p>
+          <app-markdown-editor
+            [value]="descriptionValue()"
+            [allowImages]="false"
+            (valueChange)="form.controls.description.setValue($event)"
+          />
+        </div>
 
         <div class="flex flex-col gap-3 sm:flex-row">
           <mat-form-field appearance="outline" class="flex-1">
@@ -112,6 +120,11 @@ export class PortfolioForm {
     endDate: [''],
     visible: [true],
     displayOrder: [0],
+  });
+
+  /** Espelha a descrição em um signal para alimentar o editor sob OnPush. */
+  protected readonly descriptionValue = toSignal(this.form.controls.description.valueChanges, {
+    initialValue: '',
   });
 
   constructor() {

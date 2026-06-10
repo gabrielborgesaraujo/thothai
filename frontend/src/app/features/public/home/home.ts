@@ -6,6 +6,7 @@ import { ProfileService } from '../../../core/profile/profile.service';
 import { PortfolioService } from '../../../core/profile/portfolio.service';
 import { PortfolioEntry, Profile } from '../../../core/profile/profile.models';
 import { setJsonLd } from '../../../core/seo/json-ld';
+import { MarkdownPipe } from '../../../core/content/markdown.pipe';
 
 /**
  * Home pública one-page: cartão de identidade do publicador (RF07) e portfólio curricular
@@ -13,7 +14,7 @@ import { setJsonLd } from '../../../core/seo/json-ld';
  */
 @Component({
   selector: 'app-home',
-  imports: [RouterLink],
+  imports: [RouterLink, MarkdownPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (profile(); as p) {
@@ -101,7 +102,11 @@ import { setJsonLd } from '../../../core/seo/json-ld';
                       </p>
                     }
                     @if (entry.description) {
-                      <p class="mt-1 text-gray-700 dark:text-gray-300">{{ entry.description }}</p>
+                      <!-- Descrição rica (Markdown editado no painel). -->
+                      <div
+                        class="markdown-body mt-1 text-[0.95rem]"
+                        [innerHTML]="entry.description | markdown"
+                      ></div>
                     }
                   </li>
                 }
