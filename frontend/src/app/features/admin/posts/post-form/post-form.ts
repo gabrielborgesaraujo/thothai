@@ -102,6 +102,54 @@ const MAX_TAGS = 10;
       </div>
 
       <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-3 pt-2">
+        <!-- Banner da publicação (capa do card em mosaico, hero do detalhe e og:image). -->
+        <div>
+          <p class="mb-1 text-xs font-medium text-gray-500 dark:text-gray-400">Banner</p>
+          @if (bannerUrl(); as banner) {
+            <div class="group relative overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
+              <img [src]="banner" alt="Banner da publicação" class="aspect-[3/1] w-full object-cover" />
+              <div class="absolute top-2 right-2 flex gap-1">
+                <button
+                  matButton="tonal"
+                  type="button"
+                  (click)="bannerInput.click()"
+                  [disabled]="uploadingBanner()"
+                >
+                  <mat-icon>swap_horiz</mat-icon>
+                  Trocar
+                </button>
+                <button matButton="tonal" type="button" (click)="bannerUrl.set(null)">
+                  <mat-icon>delete</mat-icon>
+                  Remover
+                </button>
+              </div>
+            </div>
+          } @else {
+            <button
+              type="button"
+              (click)="bannerInput.click()"
+              [disabled]="uploadingBanner()"
+              class="flex aspect-[6/1] w-full flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-gray-300 text-gray-400 transition-colors hover:border-indigo-400 hover:text-indigo-500 dark:border-gray-700 dark:text-gray-500 dark:hover:border-indigo-500"
+            >
+              <mat-icon>add_photo_alternate</mat-icon>
+              <span class="text-sm">Adicionar banner</span>
+            </button>
+          }
+          @if (uploadingBanner()) {
+            <mat-progress-bar mode="indeterminate" class="mt-1" />
+          }
+          @if (bannerError()) {
+            <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ bannerError() }}</p>
+          }
+          <input
+            #bannerInput
+            type="file"
+            accept="image/*"
+            hidden
+            (change)="onBannerSelected($event)"
+          />
+        </div>
+
         <mat-form-field appearance="outline">
           <mat-label>Título</mat-label>
           <input matInput formControlName="title" />
@@ -333,6 +381,9 @@ export class PostForm {
   protected readonly error = signal<string | null>(null);
   protected readonly editingId = signal<string | null>(null);
   protected readonly tags = signal<string[]>([]);
+  protected readonly bannerUrl = signal<string | null>(null);
+  protected readonly uploadingBanner = signal(false);
+  protected readonly bannerError = signal<string | null>(null);
   protected readonly uploading = signal(false);
   protected readonly uploadError = signal<string | null>(null);
   protected readonly generating = signal(false);
@@ -402,6 +453,7 @@ export class PostForm {
       summary: raw.summary.trim() ? raw.summary : null,
       body: raw.body,
       slug: raw.slug.trim() || undefined,
+      bannerUrl: this.bannerUrl(),
       tags: this.tags(),
       scheduledAt:
         raw.status === 'SCHEDULED' && raw.scheduledAt
@@ -555,6 +607,29 @@ export class PostForm {
     }
   }
 
+  /** Envia a imagem de banner para o MinIO e guarda a URL pública. */
+  protected onBannerSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) {
+      return;
+    }
+    this.uploadingBanner.set(true);
+    this.bannerError.set(null);
+    this.media.upload(file).subscribe({
+      next: (res) => {
+        this.bannerUrl.set(res.url);
+        this.uploadingBanner.set(false);
+        input.value = '';
+      },
+      error: () => {
+        this.bannerError.set('Falha ao enviar o banner.');
+        this.uploadingBanner.set(false);
+        input.value = '';
+      },
+    });
+  }
+
   protected onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
@@ -601,6 +676,7 @@ export class PostForm {
           body: post.body,
         });
         this.tags.set(post.tags);
+        this.bannerUrl.set(post.bannerUrl);
         this.loading.set(false);
       },
       error: () => {

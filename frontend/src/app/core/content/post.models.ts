@@ -36,6 +36,7 @@ export interface PostSummary {
   type: PostType;
   status: PostStatus;
   summary: string | null;
+  bannerUrl: string | null;
   tags: string[];
   publishedAt: string | null;
   scheduledAt: string | null;
@@ -50,6 +51,7 @@ export interface Post {
   status: PostStatus;
   summary: string | null;
   body: string;
+  bannerUrl: string | null;
   tags: string[];
   publishedAt: string | null;
   scheduledAt: string | null;
@@ -65,6 +67,7 @@ export interface PostRequest {
   summary: string | null;
   body: string;
   slug?: string;
+  bannerUrl: string | null;
   tags: string[];
   /** Obrigatório quando `status` é SCHEDULED (ISO-8601). */
   scheduledAt: string | null;
@@ -77,6 +80,7 @@ export interface PublicPost {
   type: PostType;
   summary: string | null;
   body: string;
+  bannerUrl: string | null;
   tags: string[];
   publishedAt: string | null;
 }

@@ -5,6 +5,8 @@ import { Meta, Title } from '@angular/platform-browser';
 import { PostService } from '../../../../core/content/post.service';
 import { Page, PostSummary } from '../../../../core/content/post.models';
 import { PostTypeBadge } from '../../../../shared/post-type-badge';
+import { persistedViewMode } from '../../../../shared/view-mode';
+import { ViewToggle } from '../../../../shared/view-toggle';
 
 /**
  * Listagem pública das postagens publicadas (RF06), com busca por termo e filtro por tag.
@@ -12,12 +14,15 @@ import { PostTypeBadge } from '../../../../shared/post-type-badge';
  */
 @Component({
   selector: 'app-public-post-list',
-  imports: [DatePipe, RouterLink, PostTypeBadge],
+  imports: [DatePipe, RouterLink, PostTypeBadge, ViewToggle],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <header class="mb-8">
-      <h1 class="text-3xl font-bold tracking-tight">Publicações</h1>
-      <p class="mt-1 text-gray-600 dark:text-gray-400">Artigos, tutoriais e notas técnicas.</p>
+    <header class="mb-8 flex items-start justify-between gap-3">
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight">Publicações</h1>
+        <p class="mt-1 text-gray-600 dark:text-gray-400">Artigos, tutoriais e notas técnicas.</p>
+      </div>
+      <app-view-toggle [mode]="view.mode()" (modeChange)="view.set($event)" />
     </header>
 
     <form (submit)="search($event, searchInput.value)" class="mb-4" role="search">
@@ -83,38 +88,63 @@ import { PostTypeBadge } from '../../../../shared/post-type-badge';
           }
         </div>
       } @else {
-        <ul class="flex flex-col gap-4">
+        <ul
+          [class]="
+            view.mode() === 'mosaic' ? 'grid gap-4 sm:grid-cols-2' : 'flex flex-col gap-4'
+          "
+        >
           @for (post of data.items; track post.id) {
             <li>
               <a
                 [routerLink]="['/posts', post.slug]"
-                class="group block rounded-xl border border-gray-200 p-5 transition-all hover:border-indigo-300 hover:shadow-sm dark:border-gray-800 dark:hover:border-indigo-700"
+                class="group flex h-full flex-col overflow-hidden rounded-xl border border-gray-200 transition-all hover:border-indigo-300 hover:shadow-sm dark:border-gray-800 dark:hover:border-indigo-700"
               >
-                <div class="flex flex-wrap items-center gap-2 text-xs">
-                  <app-post-type-badge [type]="post.type" />
-                  @if (post.publishedAt) {
-                    <time class="text-gray-400 dark:text-gray-500">{{
-                      post.publishedAt | date: 'longDate'
-                    }}</time>
+                @if (view.mode() === 'mosaic') {
+                  @if (post.bannerUrl) {
+                    <img
+                      [src]="post.bannerUrl"
+                      [alt]="'Banner: ' + post.title"
+                      loading="lazy"
+                      class="aspect-[2/1] w-full object-cover"
+                    />
+                  } @else {
+                    <div
+                      class="flex aspect-[2/1] w-full items-center justify-center bg-gradient-to-br from-indigo-50 to-gray-100 dark:from-indigo-950 dark:to-gray-900"
+                      aria-hidden="true"
+                    >
+                      <span class="material-icons text-4xl text-indigo-200 dark:text-indigo-800"
+                        >article</span
+                      >
+                    </div>
                   }
-                </div>
-                <h2
-                  class="mt-2 text-lg font-semibold group-hover:text-indigo-600 dark:group-hover:text-indigo-400"
-                >
-                  {{ post.title }}
-                </h2>
-                @if (post.summary) {
-                  <p class="mt-1 line-clamp-2 text-sm text-gray-600 dark:text-gray-400">
-                    {{ post.summary }}
-                  </p>
                 }
-                @if (post.tags.length) {
-                  <div class="mt-3 flex flex-wrap gap-1.5">
-                    @for (tag of post.tags; track tag) {
-                      <span class="text-xs text-gray-400 dark:text-gray-500">#{{ tag }}</span>
+                <div class="flex flex-1 flex-col p-5">
+                  <div class="flex flex-wrap items-center gap-2 text-xs">
+                    <app-post-type-badge [type]="post.type" />
+                    @if (post.publishedAt) {
+                      <time class="text-gray-400 dark:text-gray-500">{{
+                        post.publishedAt | date: 'longDate'
+                      }}</time>
                     }
                   </div>
-                }
+                  <h2
+                    class="mt-2 text-lg font-semibold group-hover:text-indigo-600 dark:group-hover:text-indigo-400"
+                  >
+                    {{ post.title }}
+                  </h2>
+                  @if (post.summary) {
+                    <p class="mt-1 line-clamp-2 text-sm text-gray-600 dark:text-gray-400">
+                      {{ post.summary }}
+                    </p>
+                  }
+                  @if (post.tags.length) {
+                    <div class="mt-auto flex flex-wrap gap-1.5 pt-3">
+                      @for (tag of post.tags; track tag) {
+                        <span class="text-xs text-gray-400 dark:text-gray-500">#{{ tag }}</span>
+                      }
+                    </div>
+                  }
+                </div>
               </a>
             </li>
           }
@@ -157,6 +187,8 @@ export class PublicPostList {
   protected readonly tags = signal<string[]>([]);
   protected readonly query = signal('');
   protected readonly activeTag = signal<string | null>(null);
+  /** Mosaico por padrão; a escolha persiste no navegador. */
+  protected readonly view = persistedViewMode('thothai-posts-view', 'mosaic');
 
   constructor() {
     inject(Title).setTitle('Publicações — ThothAI');

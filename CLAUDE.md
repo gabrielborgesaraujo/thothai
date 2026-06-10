@@ -111,6 +111,12 @@ Media is stored in **MinIO** (S3-compatible), not the database (RNF01). Synchron
 external search/LLM APIs must have timeouts and exception handling so a third-party failure does
 not take down the admin panel (RNF02). The system is packaged via Docker / Docker Compose.
 
+AI/search API keys are **user-configurable** in the admin panel (`ai_settings` table, endpoints
+under `/api/admin/assistant/settings`) and take precedence over the `ANTHROPIC_API_KEY` /
+`TAVILY_API_KEY` env vars (fallback). Keys never leave the API in full — only a 4-char hint.
+The Anthropic client is built per key at call time (see `ClaudeLlmClient`), so key changes
+apply without a restart.
+
 ## Running the full stack (Docker)
 
 Two standalone compose files bring up everything (`postgres`, `minio` + bucket init, `backend`,

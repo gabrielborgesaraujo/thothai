@@ -32,6 +32,13 @@ import { PostTypeBadge } from '../../../../shared/post-type-badge';
           <span class="material-icons text-[16px]" aria-hidden="true">arrow_back</span>
           Publicações
         </a>
+        @if (p.bannerUrl) {
+          <img
+            [src]="p.bannerUrl"
+            [alt]="'Banner: ' + p.title"
+            class="mb-6 aspect-[2/1] w-full rounded-2xl border border-gray-200 object-cover sm:aspect-[5/2] dark:border-gray-800"
+          />
+        }
         <header class="mb-8">
           <div class="flex flex-wrap items-center gap-2 text-sm">
             <app-post-type-badge [type]="p.type" />
@@ -108,12 +115,17 @@ export class PublicPostDetail {
     this.meta.updateTag({ name: 'twitter:card', content: 'summary_large_image' });
     this.meta.updateTag({ name: 'twitter:title', content: post.title });
     this.meta.updateTag({ name: 'twitter:description', content: description });
+    if (post.bannerUrl) {
+      this.meta.updateTag({ property: 'og:image', content: post.bannerUrl });
+      this.meta.updateTag({ name: 'twitter:image', content: post.bannerUrl });
+    }
 
     setJsonLd(this.document, 'ld-article', {
       '@context': 'https://schema.org',
       '@type': 'Article',
       headline: post.title,
       description,
+      image: post.bannerUrl ?? undefined,
       articleSection: post.type,
       keywords: post.tags.length ? post.tags.join(', ') : undefined,
       datePublished: post.publishedAt ?? undefined,
