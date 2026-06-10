@@ -1,7 +1,13 @@
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from '../api.service';
-import { DraftResponse, ReviewResponse, SnippetResponse } from './assistant.models';
+import {
+  AiSettings,
+  AiSettingsRequest,
+  DraftResponse,
+  ReviewResponse,
+  SnippetResponse,
+} from './assistant.models';
 
 /** Assistência de IA do editor (RF04 rascunho + busca viva; RF05 revisão; isca para LinkedIn). */
 @Injectable({ providedIn: 'root' })
@@ -18,5 +24,14 @@ export class AssistantService {
 
   generateSnippet(title: string, content: string): Observable<SnippetResponse> {
     return this.api.post<SnippetResponse>('/admin/assistant/snippet', { title, content });
+  }
+
+  // --- Chaves de IA configuradas pelo usuário ---
+  getSettings(): Observable<AiSettings> {
+    return this.api.get<AiSettings>('/admin/assistant/settings');
+  }
+
+  updateSettings(request: AiSettingsRequest): Observable<AiSettings> {
+    return this.api.put<AiSettings>('/admin/assistant/settings', request);
   }
 }

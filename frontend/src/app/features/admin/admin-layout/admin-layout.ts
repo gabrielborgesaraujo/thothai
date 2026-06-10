@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { path: '/admin/media', icon: 'image', label: 'Mídias', exact: false },
   { path: '/admin/profile', icon: 'badge', label: 'Perfil', exact: false },
   { path: '/admin/portfolio', icon: 'work', label: 'Portfólio', exact: false },
+  { path: '/admin/integrations', icon: 'smart_toy', label: 'Integrações', exact: false },
   { path: '/admin/account', icon: 'settings', label: 'Conta', exact: false },
 ] as const;
 
