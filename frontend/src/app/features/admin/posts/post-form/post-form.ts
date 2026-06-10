@@ -1,11 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  ElementRef,
-  inject,
-  signal,
-  viewChild,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -17,56 +10,30 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { PostService } from '../../../../core/content/post.service';
 import { PostRequest, PostStatus, PostType } from '../../../../core/content/post.models';
-import { MarkdownPipe } from '../../../../core/content/markdown.pipe';
-import { MediaService } from '../../../../core/media/media.service';
 import { AssistantService } from '../../../../core/assistant/assistant.service';
-
-/**
- * Ações da barra de formatação Markdown: envolve a seleção (`prefix`/`suffix`), prefixa a linha
- * (`block`) ou insere um trecho pronto no cursor (`snippet`).
- */
-interface ToolbarAction {
-  icon: string;
-  label: string;
-  prefix?: string;
-  suffix?: string;
-  block?: boolean;
-  snippet?: string;
-}
-
-const TABLE_SNIPPET = '\n| Coluna 1 | Coluna 2 |\n| --- | --- |\n| valor | valor |\n';
-
-const TOOLBAR_ACTIONS: ToolbarAction[] = [
-  { icon: 'format_bold', label: 'Negrito (Ctrl+B)', prefix: '**', suffix: '**' },
-  { icon: 'format_italic', label: 'Itálico (Ctrl+I)', prefix: '*', suffix: '*' },
-  { icon: 'strikethrough_s', label: 'Riscado', prefix: '~~', suffix: '~~' },
-  { icon: 'title', label: 'Título (H2)', prefix: '## ', block: true },
-  { icon: 'text_fields', label: 'Subtítulo (H3)', prefix: '### ', block: true },
-  { icon: 'code', label: 'Código inline', prefix: '`', suffix: '`' },
-  { icon: 'data_object', label: 'Bloco de código', prefix: '\n```\n', suffix: '\n```\n' },
-  { icon: 'link', label: 'Link (Ctrl+K)', prefix: '[', suffix: '](https://)' },
-  { icon: 'format_quote', label: 'Citação', prefix: '> ', block: true },
-  { icon: 'format_list_bulleted', label: 'Lista', prefix: '- ', block: true },
-  { icon: 'format_list_numbered', label: 'Lista numerada', prefix: '1. ', block: true },
-  { icon: 'table_chart', label: 'Tabela', snippet: TABLE_SNIPPET },
-  { icon: 'horizontal_rule', label: 'Linha horizontal', snippet: '\n---\n' },
-];
+import { MediaSummary } from '../../../../core/media/media.models';
+import { MediaPicker } from '../../media/media-picker';
+import { MarkdownEditor } from './markdown-editor';
 
 const MAX_TAGS = 10;
 
-/** Formulário de criação/edição de postagem com pré-visualização Markdown ao vivo (RF02). */
+/** Destino de uma escolha no seletor de mídias: capa da postagem ou imagem no corpo. */
+type PickerTarget = 'banner' | 'body';
+
+/** Formulário de criação/edição de postagem com editor WYSIWYG que persiste Markdown (RF02). */
 @Component({
   selector: 'app-post-form',
   imports: [
     ReactiveFormsModule,
     RouterLink,
-    MarkdownPipe,
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
     MatButtonModule,
     MatIconModule,
     MatProgressBarModule,
+    MarkdownEditor,
+    MediaPicker,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -117,15 +84,12 @@ const MAX_TAGS = 10;
         <div>
           <p class="mb-1 text-xs font-medium text-gray-500 dark:text-gray-400">Banner</p>
           @if (bannerUrl(); as banner) {
-            <div class="group relative overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
+            <div
+              class="group relative overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800"
+            >
               <img [src]="banner" alt="Banner da publicação" class="aspect-[3/1] w-full object-cover" />
               <div class="absolute top-2 right-2 flex gap-1">
-                <button
-                  matButton="tonal"
-                  type="button"
-                  (click)="bannerInput.click()"
-                  [disabled]="uploadingBanner()"
-                >
+                <button matButton="tonal" type="button" (click)="pickerTarget.set('banner')">
                   <mat-icon>swap_horiz</mat-icon>
                   Trocar
                 </button>
@@ -138,27 +102,13 @@ const MAX_TAGS = 10;
           } @else {
             <button
               type="button"
-              (click)="bannerInput.click()"
-              [disabled]="uploadingBanner()"
+              (click)="pickerTarget.set('banner')"
               class="flex aspect-[6/1] w-full flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-gray-300 text-gray-400 transition-colors hover:border-indigo-400 hover:text-indigo-500 dark:border-gray-700 dark:text-gray-500 dark:hover:border-indigo-500"
             >
               <mat-icon>add_photo_alternate</mat-icon>
-              <span class="text-sm">Adicionar banner</span>
+              <span class="text-sm">Escolher banner da galeria</span>
             </button>
           }
-          @if (uploadingBanner()) {
-            <mat-progress-bar mode="indeterminate" class="mt-1" />
-          }
-          @if (bannerError()) {
-            <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ bannerError() }}</p>
-          }
-          <input
-            #bannerInput
-            type="file"
-            accept="image/*"
-            hidden
-            (change)="onBannerSelected($event)"
-          />
         </div>
 
         <mat-form-field appearance="outline">
@@ -220,7 +170,7 @@ const MAX_TAGS = 10;
                   class="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                   [attr.aria-label]="'Remover tag ' + tag"
                 >
-                  <span class="material-icons text-[14px] align-middle" aria-hidden="true"
+                  <span class="material-icons align-middle text-[14px]" aria-hidden="true"
                     >close</span
                   >
                 </button>
@@ -247,24 +197,6 @@ const MAX_TAGS = 10;
           <button
             matButton
             type="button"
-            (click)="fileInput.click()"
-            [disabled]="uploading()"
-            aria-label="Inserir imagem no conteúdo"
-          >
-            <mat-icon>image</mat-icon>
-            Inserir imagem
-          </button>
-          @if (uploading()) {
-            <mat-progress-bar mode="indeterminate" class="flex-1" />
-          }
-          @if (uploadError()) {
-            <span class="text-sm text-red-600 dark:text-red-400" role="alert">{{
-              uploadError()
-            }}</span>
-          }
-          <button
-            matButton
-            type="button"
             (click)="review()"
             [disabled]="reviewing()"
             aria-label="Revisar conteúdo com IA"
@@ -282,7 +214,6 @@ const MAX_TAGS = 10;
             <mat-icon>share</mat-icon>
             Isca p/ LinkedIn
           </button>
-          <input #fileInput type="file" accept="image/*" hidden (change)="onFileSelected($event)" />
         </div>
 
         @if (reviewing()) {
@@ -325,71 +256,12 @@ const MAX_TAGS = 10;
           </div>
         }
 
-        <!-- Editor + pré-visualização; em tela cheia o bloco cobre a viewport (Esc sai). -->
-        <div
-          [class]="
-            fullscreen()
-              ? 'fixed inset-0 z-50 grid content-start gap-3 overflow-auto bg-white p-6 md:grid-cols-2 dark:bg-gray-950'
-              : 'grid gap-3 md:grid-cols-2'
-          "
-          (keydown.escape)="fullscreen.set(false)"
-        >
-          <div>
-            <!-- Barra de formatação Markdown: atua sobre a seleção no textarea. -->
-            <div
-              class="mb-1 flex flex-wrap items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-50 p-1 dark:border-gray-800 dark:bg-gray-900"
-              role="toolbar"
-              aria-label="Formatação Markdown"
-            >
-              @for (action of toolbar; track action.icon) {
-                <button
-                  type="button"
-                  (click)="applyAction(action)"
-                  [attr.aria-label]="action.label"
-                  [title]="action.label"
-                  class="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
-                >
-                  <span class="material-icons text-[18px]" aria-hidden="true">{{
-                    action.icon
-                  }}</span>
-                </button>
-              }
-              <span class="ml-auto"></span>
-              <button
-                type="button"
-                (click)="fullscreen.set(!fullscreen())"
-                [attr.aria-label]="fullscreen() ? 'Sair da tela cheia' : 'Editar em tela cheia'"
-                [title]="fullscreen() ? 'Sair da tela cheia (Esc)' : 'Tela cheia'"
-                class="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100"
-              >
-                <span class="material-icons text-[18px]" aria-hidden="true">{{
-                  fullscreen() ? 'fullscreen_exit' : 'fullscreen'
-                }}</span>
-              </button>
-            </div>
-            <mat-form-field appearance="outline" class="w-full">
-              <mat-label>Conteúdo (Markdown)</mat-label>
-              <textarea
-                #bodyInput
-                matInput
-                formControlName="body"
-                [rows]="fullscreen() ? 28 : 18"
-                class="resize-y font-mono text-sm"
-                (keydown)="onEditorKeydown($event)"
-                (paste)="onEditorPaste($event)"
-                (dragover)="$event.preventDefault()"
-                (drop)="onEditorDrop($event)"
-              ></textarea>
-              <mat-hint>Cole ou arraste uma imagem para inseri-la no texto.</mat-hint>
-            </mat-form-field>
-          </div>
-          <div class="overflow-auto rounded-xl border border-gray-200 p-4 dark:border-gray-800">
-            <p class="mb-2 text-xs tracking-wide text-gray-400 uppercase dark:text-gray-500">
-              Pré-visualização
-            </p>
-            <div class="markdown-body" [innerHTML]="bodyValue() | markdown"></div>
-          </div>
-        </div>
+        <!-- Editor WYSIWYG: lê e grava Markdown; cole/arraste imagens direto no texto. -->
+        <app-markdown-editor
+          [value]="bodyValue()"
+          (valueChange)="form.controls.body.setValue($event)"
+          (imageRequested)="pickerTarget.set('body')"
+        />
 
         <div class="flex gap-2">
           <button matButton="filled" type="submit" [disabled]="loading()">
@@ -398,31 +270,29 @@ const MAX_TAGS = 10;
           <a matButton routerLink="/admin/posts">Cancelar</a>
         </div>
       </form>
+
+      @if (pickerTarget()) {
+        <app-media-picker (closed)="pickerTarget.set(null)" (selected)="onMediaPicked($event)" />
+      }
     </div>
   `,
 })
 export class PostForm {
   private readonly fb = inject(NonNullableFormBuilder);
   private readonly postService = inject(PostService);
-  private readonly media = inject(MediaService);
   private readonly assistant = inject(AssistantService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
-  private readonly bodyInput = viewChild.required<ElementRef<HTMLTextAreaElement>>('bodyInput');
+  private readonly editor = viewChild.required(MarkdownEditor);
 
-  protected readonly toolbar = TOOLBAR_ACTIONS;
   protected readonly maxTags = MAX_TAGS;
-  protected readonly fullscreen = signal(false);
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly editingId = signal<string | null>(null);
   protected readonly tags = signal<string[]>([]);
   protected readonly bannerUrl = signal<string | null>(null);
-  protected readonly uploadingBanner = signal(false);
-  protected readonly bannerError = signal<string | null>(null);
-  protected readonly uploading = signal(false);
-  protected readonly uploadError = signal<string | null>(null);
+  protected readonly pickerTarget = signal<PickerTarget | null>(null);
   protected readonly generating = signal(false);
   protected readonly aiError = signal<string | null>(null);
   protected readonly reviewing = signal(false);
@@ -442,7 +312,7 @@ export class PostForm {
     body: ['', Validators.required],
   });
 
-  /** Espelha o corpo em um signal para alimentar a pré-visualização sob OnPush. */
+  /** Espelha o corpo em um signal para alimentar o editor sob OnPush. */
   protected readonly bodyValue = toSignal(this.form.controls.body.valueChanges, {
     initialValue: '',
   });
@@ -509,6 +379,18 @@ export class PostForm {
     });
   }
 
+  // --- Seletor de mídias (banner e corpo) ---
+
+  protected onMediaPicked(media: MediaSummary): void {
+    const target = this.pickerTarget();
+    this.pickerTarget.set(null);
+    if (target === 'banner') {
+      this.bannerUrl.set(media.url);
+    } else if (target === 'body') {
+      this.editor().insertImage(media.url, media.altText ?? media.originalFilename);
+    }
+  }
+
   // --- Tags ---
 
   protected onTagKeydown(event: KeyboardEvent): void {
@@ -534,101 +416,7 @@ export class PostForm {
     this.tags.update((tags) => tags.filter((t) => t !== tag));
   }
 
-  // --- Barra de formatação Markdown ---
-
-  protected applyAction(action: ToolbarAction): void {
-    const el = this.bodyInput().nativeElement;
-    const value = this.form.controls.body.value;
-    const start = el.selectionStart ?? value.length;
-    const end = el.selectionEnd ?? start;
-
-    if (action.snippet) {
-      this.insertAtCursor(action.snippet);
-      return;
-    }
-
-    const prefix = action.prefix ?? '';
-    if (action.block) {
-      // Prefixa o início da linha corrente (título, citação, lista).
-      const lineStart = value.lastIndexOf('\n', start - 1) + 1;
-      this.form.controls.body.setValue(value.slice(0, lineStart) + prefix + value.slice(lineStart));
-      this.restoreSelection(start + prefix.length, end + prefix.length);
-      return;
-    }
-
-    const selected = value.slice(start, end);
-    const suffix = action.suffix ?? '';
-    this.form.controls.body.setValue(
-      value.slice(0, start) + prefix + selected + suffix + value.slice(end),
-    );
-    // Sem seleção, o cursor fica entre os marcadores; com seleção, depois do sufixo.
-    const caret = selected ? end + prefix.length + suffix.length : start + prefix.length;
-    this.restoreSelection(caret, caret);
-  }
-
-  /** Atalhos do editor: Ctrl/Cmd+B (negrito), +I (itálico), +K (link). */
-  protected onEditorKeydown(event: KeyboardEvent): void {
-    if (!event.ctrlKey && !event.metaKey) {
-      return;
-    }
-    const shortcut: Record<string, string> = { b: 'format_bold', i: 'format_italic', k: 'link' };
-    const icon = shortcut[event.key.toLowerCase()];
-    if (!icon) {
-      return;
-    }
-    const action = this.toolbar.find((a) => a.icon === icon);
-    if (action) {
-      event.preventDefault();
-      this.applyAction(action);
-    }
-  }
-
-  /** Colar imagem da área de transferência: envia ao storage e insere o Markdown no cursor. */
-  protected onEditorPaste(event: ClipboardEvent): void {
-    const file = Array.from(event.clipboardData?.files ?? []).find((f) =>
-      f.type.startsWith('image/'),
-    );
-    if (file) {
-      event.preventDefault();
-      this.uploadIntoBody(file);
-    }
-  }
-
-  /** Arrastar e soltar imagem no textarea. */
-  protected onEditorDrop(event: DragEvent): void {
-    const file = Array.from(event.dataTransfer?.files ?? []).find((f) =>
-      f.type.startsWith('image/'),
-    );
-    if (file) {
-      event.preventDefault();
-      this.uploadIntoBody(file);
-    }
-  }
-
-  private uploadIntoBody(file: File): void {
-    this.uploading.set(true);
-    this.uploadError.set(null);
-    this.media.upload(file).subscribe({
-      next: (res) => {
-        this.insertAtCursor(`![${file.name}](${res.url})`);
-        this.uploading.set(false);
-      },
-      error: () => {
-        this.uploadError.set('Falha ao enviar a imagem.');
-        this.uploading.set(false);
-      },
-    });
-  }
-
-  private restoreSelection(start: number, end: number): void {
-    const el = this.bodyInput().nativeElement;
-    setTimeout(() => {
-      el.focus();
-      el.setSelectionRange(start, end);
-    });
-  }
-
-  // --- IA (RF04/RF05) e mídia (RF03) ---
+  // --- IA (RF04/RF05) ---
 
   /** RF04 — gera um rascunho a partir do tema (busca viva + IA) e preenche o formulário. */
   protected generateDraft(theme: string): void {
@@ -698,48 +486,6 @@ export class PostForm {
     if (text) {
       navigator.clipboard?.writeText(text);
     }
-  }
-
-  /** Envia a imagem de banner para o MinIO e guarda a URL pública. */
-  protected onBannerSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) {
-      return;
-    }
-    this.uploadingBanner.set(true);
-    this.bannerError.set(null);
-    this.media.upload(file).subscribe({
-      next: (res) => {
-        this.bannerUrl.set(res.url);
-        this.uploadingBanner.set(false);
-        input.value = '';
-      },
-      error: () => {
-        this.bannerError.set('Falha ao enviar o banner.');
-        this.uploadingBanner.set(false);
-        input.value = '';
-      },
-    });
-  }
-
-  protected onFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = '';
-    if (file) {
-      this.uploadIntoBody(file);
-    }
-  }
-
-  /** Insere o trecho na posição atual do cursor no textarea do corpo. */
-  private insertAtCursor(snippet: string): void {
-    const el = this.bodyInput().nativeElement;
-    const start = el.selectionStart ?? el.value.length;
-    const end = el.selectionEnd ?? start;
-    const current = this.form.controls.body.value;
-    this.form.controls.body.setValue(current.slice(0, start) + snippet + current.slice(end));
-    this.restoreSelection(start + snippet.length, start + snippet.length);
   }
 
   private loadPost(id: string): void {

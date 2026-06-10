@@ -126,3 +126,26 @@ html.dark {
   border-top: 1px solid var(--md-border);
   margin: 2em 0;
 }
+
+/* Editor TipTap (admin): placeholder e seleção de células — reusa o tema do .markdown-body. */
+.markdown-body p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--md-muted);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+.markdown-body .selectedCell {
+  position: relative;
+}
+.markdown-body .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--color-indigo-500) 20%, transparent);
+  pointer-events: none;
+}
+.markdown-body img.ProseMirror-selectednode {
+  outline: 2px solid var(--color-indigo-500);
+  outline-offset: 2px;
+}
