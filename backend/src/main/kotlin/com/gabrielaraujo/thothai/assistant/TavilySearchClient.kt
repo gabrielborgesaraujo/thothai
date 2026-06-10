@@ -6,25 +6,27 @@ import org.springframework.web.client.RestClient
 import org.springframework.web.client.body
 
 /**
- * [SearchClient] sobre a API do Tavily. A busca é **best-effort** (RF04/RNF02): se a chave não estiver
- * configurada ou a chamada falhar, retorna lista vazia e o rascunho é gerado apenas a partir do tema.
+ * [SearchClient] sobre a API do Tavily, com a chave resolvida a cada chamada ([AiSettingsService]:
+ * banco > ambiente). A busca é **best-effort** (RF04/RNF02): se a chave não estiver configurada ou a
+ * chamada falhar, retorna lista vazia e o rascunho é gerado apenas a partir do tema.
  */
 @Component
 internal class TavilySearchClient(
     @param:org.springframework.beans.factory.annotation.Qualifier("tavilyRestClient")
     private val restClient: RestClient,
-    private val properties: SearchProperties,
+    private val settings: AiSettingsService,
 ) : SearchClient {
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun search(query: String): List<SearchResult> {
-        if (properties.tavily.apiKey.isBlank()) {
+        val apiKey = settings.resolveTavilyKey()
+        if (apiKey.isBlank()) {
             return emptyList()
         }
         return try {
             val body =
                 mapOf(
-                    "api_key" to properties.tavily.apiKey,
+                    "api_key" to apiKey,
                     "query" to query,
                     "max_results" to 5,
                     "search_depth" to "basic",
