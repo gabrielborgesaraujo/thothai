@@ -25,6 +25,11 @@ data class ReviewResponse(
     val recommendations: List<String>,
 )
 
+/** Texto corrigido pela IA (revisão aplicável — o painel mostra antes/depois). */
+data class CorrectionResponse(
+    val text: String,
+)
+
 /** Geração de "isca" para LinkedIn a partir de uma postagem (estratégia de distribuição). */
 data class SnippetRequest(
     val title: String,

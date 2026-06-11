@@ -50,6 +50,16 @@ internal class AssistantService(
         return ReviewResponse(parseRecommendations(raw))
     }
 
+    /** Devolve o texto corrigido pela IA (ortografia/gramática), preservando o Markdown. */
+    fun applyReview(content: String): CorrectionResponse {
+        val cleaned = content.trim()
+        if (cleaned.isBlank()) {
+            throw InvalidRequestException("Informe o conteúdo a corrigir")
+        }
+        val raw = llm.complete(CORRECTION_SYSTEM, cleaned, maxTokens = 8192)
+        return CorrectionResponse(stripCodeFence(raw.trim()))
+    }
+
     /** Gera uma "isca" para LinkedIn (RF04/estratégia de distribuição): gancho + CTA de volta ao portal. */
     fun generateSnippet(
         title: String,
@@ -192,6 +202,11 @@ internal class AssistantService(
             "Você é um revisor técnico. Analise o texto e gere recomendações objetivas de correção " +
                 "ortográfica, gramatical e de vocabulário técnico. Responda somente com um array JSON de " +
                 "strings, cada uma uma recomendação curta, sem texto extra."
+        const val CORRECTION_SYSTEM =
+            "Você é um revisor técnico. Corrija ortografia, gramática e vocabulário técnico do texto " +
+                "recebido, preservando o conteúdo, o tom e TODA a formatação Markdown (títulos, listas, " +
+                "código, links, imagens). Responda APENAS com o texto corrigido, sem comentários nem " +
+                "cercas de código envolvendo a resposta."
         const val SNIPPET_SYSTEM =
             "Você cria 'iscas de conteúdo' para o LinkedIn a partir de uma publicação técnica. Escreva um " +
                 "texto curto e envolvente em português (gancho na 1ª linha, 2 a 3 linhas de valor e um " +

@@ -114,6 +114,15 @@ class AssistantServiceTest {
     }
 
     @Test
+    fun `correcao aplicavel devolve o texto sem cercas de codigo`() {
+        val svc = service(llm = { _, _, _ -> "```\n## Corrigido\n\nTexto sem erros.\n```" })
+
+        val corrected = svc.applyReview("## Coregido\n\nTexto com eros.")
+
+        assertEquals("## Corrigido\n\nTexto sem erros.", corrected.text)
+    }
+
+    @Test
     fun `gera isca para linkedin a partir do texto do LLM`() {
         val svc = service(llm = { _, _, _ -> "Gancho! Leia o artigo completo no portal." })
 

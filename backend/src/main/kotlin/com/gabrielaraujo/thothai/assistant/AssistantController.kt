@@ -25,6 +25,11 @@ internal class AssistantController(
         @Valid @RequestBody request: ReviewRequest,
     ): ReviewResponse = assistantService.review(request.content)
 
+    @PostMapping("/apply-review")
+    fun applyReview(
+        @Valid @RequestBody request: ReviewRequest,
+    ): CorrectionResponse = assistantService.applyReview(request.content)
+
     @PostMapping("/snippet")
     fun snippet(
         @RequestBody request: SnippetRequest,
