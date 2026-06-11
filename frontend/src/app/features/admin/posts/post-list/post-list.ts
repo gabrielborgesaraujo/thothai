@@ -8,6 +8,7 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { PostService } from '../../../../core/content/post.service';
 import { Page, PostStatus, PostSummary, PostType } from '../../../../core/content/post.models';
 import { PostTypeBadge } from '../../../../shared/post-type-badge';
+import { LinkedInShareDialog } from '../linkedin-share-dialog';
 
 const STATUS_BADGES: Record<PostStatus, { label: string; classes: string }> = {
   DRAFT: {
@@ -35,6 +36,7 @@ const STATUS_BADGES: Record<PostStatus, { label: string; classes: string }> = {
     MatProgressBarModule,
     MatPaginatorModule,
     PostTypeBadge,
+    LinkedInShareDialog,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -169,6 +171,16 @@ const STATUS_BADGES: Record<PostStatus, { label: string; classes: string }> = {
                       <button matButton (click)="confirmDelete(p.id)">Sim</button>
                       <button matButton (click)="pendingDelete.set(null)">Não</button>
                     } @else {
+                      @if (p.status === 'PUBLISHED') {
+                        <button
+                          matIconButton
+                          (click)="sharing.set(p)"
+                          aria-label="Publicar no LinkedIn"
+                          title="Publicar no LinkedIn"
+                        >
+                          <mat-icon>share</mat-icon>
+                        </button>
+                      }
                       <a
                         matIconButton
                         [routerLink]="['/admin/posts', p.id]"
@@ -200,6 +212,10 @@ const STATUS_BADGES: Record<PostStatus, { label: string; classes: string }> = {
         />
       }
     }
+
+    @if (sharing(); as post) {
+      <app-linkedin-share-dialog [post]="post" (closed)="sharing.set(null)" />
+    }
   `,
 })
 export class PostList {
@@ -209,6 +225,8 @@ export class PostList {
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
   protected readonly pendingDelete = signal<string | null>(null);
+  /** Postagem em compartilhamento no LinkedIn (abre o diálogo). */
+  protected readonly sharing = signal<PostSummary | null>(null);
 
   protected readonly q = signal('');
   protected readonly status = signal<PostStatus | null>(null);

@@ -1,6 +1,10 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { ChangeDetectionStrategy, Component, inject, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { filter } from 'rxjs';
 import { ThemeToggle } from '../../../core/theme/theme-toggle';
+import { MetricsService } from '../../../core/metrics/metrics.service';
 
 @Component({
   selector: 'app-public-layout',
@@ -55,4 +59,18 @@ import { ThemeToggle } from '../../../core/theme/theme-toggle';
 })
 export class PublicLayout {
   protected readonly year = new Date().getFullYear();
+
+  constructor() {
+    // Beacon de métricas: registra cada navegação no portal, apenas no navegador (não no SSR,
+    // que renderiza para crawlers e inflaria os números).
+    if (isPlatformBrowser(inject(PLATFORM_ID))) {
+      const metrics = inject(MetricsService);
+      inject(Router)
+        .events.pipe(
+          filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+          takeUntilDestroyed(),
+        )
+        .subscribe((event) => metrics.recordView(event.urlAfterRedirects.split('?')[0]));
+    }
+  }
 }

@@ -1,5 +1,14 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  DOCUMENT,
+  inject,
+  signal,
+} from '@angular/core';
+import { DatePipe } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
+import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -14,6 +23,7 @@ import {
   AiProviderInfo,
   AiSettings,
 } from '../../../core/assistant/assistant.models';
+import { LinkedInStatus, SocialService } from '../../../core/social/social.service';
 
 /**
  * Configuração das integrações de IA pelo próprio usuário: escolha do provedor de LLM
@@ -23,6 +33,7 @@ import {
 @Component({
   selector: 'app-integrations',
   imports: [
+    DatePipe,
     ReactiveFormsModule,
     MatFormFieldModule,
     MatInputModule,
@@ -170,12 +181,89 @@ import {
           <button matButton="filled" type="submit" [disabled]="saving() || loading()">Salvar</button>
         </div>
       </form>
+
+      <!-- LinkedIn: app próprio do usuário + conexão OAuth da conta -->
+      <form [formGroup]="linkedInForm" (ngSubmit)="saveLinkedIn()" class="mt-8 flex flex-col gap-2">
+        <section class="rounded-xl border border-gray-200 p-5 dark:border-gray-800">
+          <div class="mb-1 flex items-center justify-between gap-2">
+            <h2 class="inline-flex items-center gap-2 font-medium">
+              <mat-icon class="text-indigo-500">share</mat-icon>
+              LinkedIn
+            </h2>
+            <span
+              class="rounded-full px-2.5 py-0.5 text-xs font-medium"
+              [class]="linkedInBadge().classes"
+              >{{ linkedInBadge().label }}</span
+            >
+          </div>
+          <p class="mb-4 text-xs text-gray-500 dark:text-gray-400">
+            Publique suas postagens direto no seu feed. Crie um app em
+            <code class="font-mono">developers.linkedin.com</code> com o produto "Share on
+            LinkedIn" e "Sign In with LinkedIn using OpenID Connect", cadastre a redirect URL
+            <code class="font-mono">{{ callbackUrl() }}</code> e informe as credenciais abaixo.
+            @if (linkedIn()?.clientIdHint; as hint) {
+              Client ID atual: <code class="font-mono">{{ hint }}</code
+              >.
+            }
+          </p>
+
+          @if (linkedInMessage(); as msg) {
+            <p
+              class="mb-3 rounded-lg px-3 py-2 text-sm"
+              [class]="
+                msg.ok
+                  ? 'bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-300'
+                  : 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300'
+              "
+              role="status"
+            >
+              {{ msg.text }}
+            </p>
+          }
+
+          <div class="flex flex-col gap-2 sm:flex-row">
+            <mat-form-field appearance="outline" class="flex-1">
+              <mat-label>Client ID</mat-label>
+              <input matInput formControlName="clientId" autocomplete="off" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="flex-1">
+              <mat-label>Client Secret</mat-label>
+              <input matInput type="password" formControlName="clientSecret" autocomplete="off" />
+            </mat-form-field>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <button matButton type="submit" [disabled]="linkedInSaving()">Salvar credenciais</button>
+            @if (linkedIn()?.configured) {
+              @if (linkedIn()?.connected) {
+                <span class="text-sm text-gray-600 dark:text-gray-300">
+                  Conectado como <strong>{{ linkedIn()?.memberName ?? 'membro' }}</strong>
+                  @if (linkedIn()?.tokenExpiresAt) {
+                    (até {{ linkedIn()!.tokenExpiresAt | date: 'shortDate' }})
+                  }
+                </span>
+                <button matButton type="button" (click)="disconnectLinkedIn()" [disabled]="linkedInSaving()">
+                  <mat-icon>link_off</mat-icon>
+                  Desconectar
+                </button>
+              } @else {
+                <button matButton="filled" type="button" (click)="connectLinkedIn()" [disabled]="linkedInSaving()">
+                  <mat-icon>link</mat-icon>
+                  Conectar minha conta
+                </button>
+              }
+            }
+          </div>
+        </section>
+      </form>
     </div>
   `,
 })
 export class Integrations {
   private readonly fb = inject(NonNullableFormBuilder);
   private readonly assistant = inject(AssistantService);
+  private readonly social = inject(SocialService);
+  private readonly document = inject(DOCUMENT);
 
   protected readonly settings = signal<AiSettings | null>(null);
   protected readonly loading = signal(true);
@@ -206,12 +294,110 @@ export class Integrations {
     () => this.settings() !== null && this.providerValue() !== this.settings()!.provider,
   );
 
+  // --- LinkedIn ---
+  protected readonly linkedIn = signal<LinkedInStatus | null>(null);
+  protected readonly linkedInSaving = signal(false);
+  protected readonly linkedInMessage = signal<{ ok: boolean; text: string } | null>(null);
+
+  protected readonly linkedInForm = this.fb.group({
+    clientId: ['', Validators.required],
+    clientSecret: ['', Validators.required],
+  });
+
+  /** Redirect URL a cadastrar no app LinkedIn (mesma origem do painel). */
+  protected readonly callbackUrl = computed(
+    () => `${this.document.location?.origin ?? ''}/api/admin/social/linkedin/callback`,
+  );
+
   constructor() {
     this.assistant.getSettings().subscribe({
       next: (settings) => this.applyState(settings),
       error: () => {
         this.error.set('Falha ao carregar as integrações.');
         this.loading.set(false);
+      },
+    });
+    this.social.linkedInStatus().subscribe({
+      next: (status) => this.linkedIn.set(status),
+      error: () => undefined,
+    });
+    // Retorno do fluxo OAuth (?linkedin=connected|error).
+    const result = inject(ActivatedRoute).snapshot.queryParamMap.get('linkedin');
+    if (result === 'connected') {
+      this.linkedInMessage.set({ ok: true, text: 'Conta do LinkedIn conectada com sucesso.' });
+    } else if (result === 'error') {
+      this.linkedInMessage.set({
+        ok: false,
+        text: 'Não foi possível conectar ao LinkedIn — confira as credenciais e tente de novo.',
+      });
+    }
+  }
+
+  protected linkedInBadge(): { label: string; classes: string } {
+    const status = this.linkedIn();
+    if (status?.connected) {
+      return {
+        label: 'Conectado',
+        classes: 'bg-green-50 text-green-700 dark:bg-green-500/15 dark:text-green-300',
+      };
+    }
+    if (status?.configured) {
+      return {
+        label: 'App configurado',
+        classes: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300',
+      };
+    }
+    return {
+      label: 'Não configurado',
+      classes: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+    };
+  }
+
+  protected saveLinkedIn(): void {
+    if (this.linkedInForm.invalid || this.linkedInSaving()) {
+      return;
+    }
+    const raw = this.linkedInForm.getRawValue();
+    this.linkedInSaving.set(true);
+    this.linkedInMessage.set(null);
+    this.social.saveLinkedInCredentials(raw.clientId.trim(), raw.clientSecret.trim()).subscribe({
+      next: (status) => {
+        this.linkedIn.set(status);
+        this.linkedInForm.reset({ clientId: '', clientSecret: '' });
+        this.linkedInSaving.set(false);
+        this.linkedInMessage.set({ ok: true, text: 'Credenciais salvas. Agora conecte sua conta.' });
+      },
+      error: () => {
+        this.linkedInSaving.set(false);
+        this.linkedInMessage.set({ ok: false, text: 'Falha ao salvar as credenciais.' });
+      },
+    });
+  }
+
+  protected connectLinkedIn(): void {
+    this.linkedInSaving.set(true);
+    this.social.linkedInAuthorizeUrl().subscribe({
+      next: ({ url }) => {
+        this.document.location.href = url;
+      },
+      error: () => {
+        this.linkedInSaving.set(false);
+        this.linkedInMessage.set({ ok: false, text: 'Falha ao iniciar a conexão com o LinkedIn.' });
+      },
+    });
+  }
+
+  protected disconnectLinkedIn(): void {
+    this.linkedInSaving.set(true);
+    this.social.disconnectLinkedIn().subscribe({
+      next: (status) => {
+        this.linkedIn.set(status);
+        this.linkedInSaving.set(false);
+        this.linkedInMessage.set({ ok: true, text: 'Conta desconectada.' });
+      },
+      error: () => {
+        this.linkedInSaving.set(false);
+        this.linkedInMessage.set({ ok: false, text: 'Falha ao desconectar.' });
       },
     });
   }
