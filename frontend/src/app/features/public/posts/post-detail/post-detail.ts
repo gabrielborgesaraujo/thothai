@@ -43,7 +43,7 @@ interface TocItem {
       <div class="py-16 text-center">
         <p class="text-gray-500 dark:text-gray-400">Publicação não encontrada.</p>
         <a
-          routerLink="/posts"
+          routerLink="/"
           class="mt-3 inline-block text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
           >← Voltar às publicações</a
         >
@@ -51,7 +51,7 @@ interface TocItem {
     } @else if (post(); as p) {
       <article>
         <a
-          routerLink="/posts"
+          [routerLink]="['/', handle(), 'posts']"
           class="mb-6 inline-flex items-center gap-1 text-sm text-gray-500 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
         >
           <span class="material-icons text-[16px]" aria-hidden="true">arrow_back</span>
@@ -112,7 +112,7 @@ interface TocItem {
             <div class="flex flex-wrap gap-2">
               @for (tag of p.tags; track tag) {
                 <a
-                  [routerLink]="['/posts']"
+                  [routerLink]="['/', handle(), 'posts']"
                   [queryParams]="{ tag }"
                   class="rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-600 transition-colors hover:border-indigo-400 hover:text-indigo-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-indigo-500 dark:hover:text-indigo-400"
                   >#{{ tag }}</a
@@ -127,7 +127,7 @@ interface TocItem {
           <nav class="mt-8 grid gap-3 sm:grid-cols-2" aria-label="Outras publicações">
             @if (p.previous; as prev) {
               <a
-                [routerLink]="['/posts', prev.slug]"
+                [routerLink]="['/', handle(), 'posts', prev.slug]"
                 class="group rounded-xl border border-gray-200 p-4 transition-all hover:border-indigo-300 dark:border-gray-800 dark:hover:border-indigo-700"
               >
                 <span class="text-xs text-gray-400 dark:text-gray-500">← Anterior</span>
@@ -141,7 +141,7 @@ interface TocItem {
             }
             @if (p.next; as next) {
               <a
-                [routerLink]="['/posts', next.slug]"
+                [routerLink]="['/', handle(), 'posts', next.slug]"
                 class="group rounded-xl border border-gray-200 p-4 text-right transition-all hover:border-indigo-300 dark:border-gray-800 dark:hover:border-indigo-700"
               >
                 <span class="text-xs text-gray-400 dark:text-gray-500">Próxima →</span>
@@ -162,7 +162,7 @@ interface TocItem {
               @for (rel of p.related; track rel.slug) {
                 <li>
                   <a
-                    [routerLink]="['/posts', rel.slug]"
+                    [routerLink]="['/', handle(), 'posts', rel.slug]"
                     class="group flex h-full flex-col overflow-hidden rounded-xl border border-gray-200 transition-all hover:border-indigo-300 hover:shadow-sm dark:border-gray-800 dark:hover:border-indigo-700"
                   >
                     @if (rel.bannerUrl) {
@@ -203,6 +203,7 @@ export class PublicPostDetail {
   private readonly bodyRef = viewChild<ElementRef<HTMLElement>>('body');
 
   protected readonly post = signal<PublicPost | null>(null);
+  protected readonly handle = signal('');
   protected readonly notFound = signal(false);
   protected readonly toc = signal<TocItem[]>([]);
   protected readonly progress = signal(0);
@@ -221,6 +222,7 @@ export class PublicPostDetail {
     // componente, então é preciso reagir a cada mudança de slug — não basta o snapshot.
     this.route.paramMap.subscribe((params) => {
       const slug = params.get('slug');
+      this.handle.set(params.get('handle') ?? '');
       if (!slug) {
         this.notFound.set(true);
         return;
@@ -242,7 +244,7 @@ export class PublicPostDetail {
     this.notFound.set(false);
     this.toc.set([]);
     this.readSent = false;
-    this.postService.getPublished(slug).subscribe({
+    this.postService.getPublished(this.handle(), slug).subscribe({
       next: (post) => {
         this.post.set(post);
         this.applyMeta(post);
@@ -321,7 +323,7 @@ export class PublicPostDetail {
     this.progress.set(Math.round(ratio * 100));
     if (!this.readSent && ratio >= 0.8 && this.post()) {
       this.readSent = true;
-      this.metrics.recordRead(`/posts/${slug}`);
+      this.metrics.recordRead(`/${this.handle()}/posts/${slug}`);
     }
   }
 

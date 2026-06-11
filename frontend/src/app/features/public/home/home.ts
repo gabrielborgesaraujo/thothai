@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { Meta, Title } from '@angular/platform-browser';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ProfileService } from '../../../core/profile/profile.service';
 import { PortfolioService } from '../../../core/profile/portfolio.service';
 import { PortfolioEntry, Profile } from '../../../core/profile/profile.models';
@@ -54,7 +54,7 @@ import { MarkdownPipe } from '../../../core/content/markdown.pipe';
               >
             }
             <a
-              routerLink="/posts"
+              [routerLink]="['/', handle(), 'posts']"
               class="rounded-lg border border-indigo-200 px-4 py-2 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-50 dark:border-indigo-900 dark:text-indigo-300 dark:hover:bg-indigo-950"
               >Publicações →</a
             >
@@ -116,9 +116,13 @@ import { MarkdownPipe } from '../../../core/content/markdown.pipe';
         </div>
       }
     } @else {
-      <section class="py-8">
-        <h1 class="text-3xl font-bold tracking-tight">ThothAI</h1>
-        <p class="mt-3 text-gray-600 dark:text-gray-400">Hub de conteúdo técnico. Em construção.</p>
+      <section class="py-16 text-center">
+        <p class="text-gray-500 dark:text-gray-400">Publicador não encontrado.</p>
+        <a
+          routerLink="/"
+          class="mt-3 inline-block text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+          >← Voltar à plataforma</a
+        >
       </section>
     }
   `,
@@ -131,6 +135,7 @@ export class Home {
   private readonly document = inject(DOCUMENT);
 
   protected readonly profile = signal<Profile | null>(null);
+  protected readonly handle = signal('');
   private readonly entries = signal<PortfolioEntry[]>([]);
 
   /** Skills renderizadas como chips; experiência e formação como linha do tempo. */
@@ -147,17 +152,22 @@ export class Home {
   });
 
   constructor() {
-    // Ambas as requisições são pending tasks: o SSR aguarda antes de renderizar.
-    this.profileService.getPublic().subscribe({
-      next: (profile) => {
-        this.profile.set(profile);
-        this.applyMeta(profile);
-      },
-      error: () => this.profile.set(null),
-    });
-    this.portfolioService.listPublic().subscribe({
-      next: (list) => this.entries.set(list),
-      error: () => this.entries.set([]),
+    // A rota é reutilizada entre handles: reage a cada mudança de publicador.
+    inject(ActivatedRoute).paramMap.subscribe((params) => {
+      const handle = params.get('handle') ?? '';
+      this.handle.set(handle);
+      // Ambas as requisições são pending tasks: o SSR aguarda antes de renderizar.
+      this.profileService.getPublic(handle).subscribe({
+        next: (profile) => {
+          this.profile.set(profile);
+          this.applyMeta(profile);
+        },
+        error: () => this.profile.set(null),
+      });
+      this.portfolioService.listPublic(handle).subscribe({
+        next: (list) => this.entries.set(list),
+        error: () => this.entries.set([]),
+      });
     });
   }
 

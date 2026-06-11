@@ -91,7 +91,7 @@ import { ThemeToggle } from '../../../core/theme/theme-toggle';
           </form>
         </div>
 
-        <p class="mt-6 text-center">
+        <p class="mt-6 flex items-center justify-center gap-4 text-center">
           <a
             routerLink="/"
             class="inline-flex items-center gap-1 text-sm text-gray-500 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
@@ -99,6 +99,11 @@ import { ThemeToggle } from '../../../core/theme/theme-toggle';
             <mat-icon class="text-[16px]!">arrow_back</mat-icon>
             Voltar ao site
           </a>
+          <a
+            routerLink="/registro"
+            class="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+            >Criar meu hub</a
+          >
         </p>
       </div>
     </div>
@@ -133,11 +138,13 @@ export class Login {
     const { username, password } = this.form.getRawValue();
     this.auth.login(username, password).subscribe({
       next: () => this.router.navigate(['/admin']),
-      error: (err: { status?: number }) => {
+      error: (err: { status?: number; error?: { detail?: string } }) => {
         this.error.set(
           err?.status === 429
             ? 'Muitas tentativas. Tente novamente em alguns minutos.'
-            : 'Usuário ou senha inválidos.',
+            : err?.status === 403
+              ? (err?.error?.detail ?? 'Cadastro aguardando aprovação ou desativado.')
+              : 'Usuário ou senha inválidos.',
         );
         this.loading.set(false);
       },

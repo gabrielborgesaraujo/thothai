@@ -6,14 +6,27 @@ export const publicRoutes: Routes = [
     path: '',
     component: PublicLayout,
     children: [
-      { path: '', loadComponent: () => import('./home/home').then((m) => m.Home) },
-      // Portal público de leitura (RF06): listagem cronológica e página de leitura por slug.
+      // Landing da plataforma: apresentação + diretório de publicadores.
       {
-        path: 'posts',
+        path: '',
+        loadComponent: () => import('./platform-home/platform-home').then((m) => m.PlatformHome),
+      },
+      // Auto-registro de publicador (entra na fila de aprovação).
+      {
+        path: 'registro',
+        loadComponent: () => import('./register/register').then((m) => m.Register),
+      },
+      // Páginas do publicador (Fase 2): currículo/identidade e portal de leitura por handle.
+      {
+        path: ':handle',
+        loadComponent: () => import('./home/home').then((m) => m.Home),
+      },
+      {
+        path: ':handle/posts',
         loadComponent: () => import('./posts/post-list/post-list').then((m) => m.PublicPostList),
       },
       {
-        path: 'posts/:slug',
+        path: ':handle/posts/:slug',
         loadComponent: () =>
           import('./posts/post-detail/post-detail').then((m) => m.PublicPostDetail),
       },

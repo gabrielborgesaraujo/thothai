@@ -61,9 +61,15 @@ export class PostService {
     return this.api.get<PostRevision>(`/admin/posts/${id}/revisions/${revisionId}`);
   }
 
-  // --- Portal público (RF06) ---
-  listPublished(page = 0, size = 10, q?: string, tag?: string): Observable<Page<PostSummary>> {
-    return this.api.get<Page<PostSummary>>('/posts', {
+  // --- Portal público por publicador (RF06 / Fase 2) ---
+  listPublished(
+    handle: string,
+    page = 0,
+    size = 10,
+    q?: string,
+    tag?: string,
+  ): Observable<Page<PostSummary>> {
+    return this.api.get<Page<PostSummary>>(`/p/${handle}/posts`, {
       page,
       size,
       q: q?.trim() || undefined,
@@ -71,12 +77,12 @@ export class PostService {
     });
   }
 
-  /** Tags em uso nos posts publicados (chips de filtro do portal). */
-  publishedTags(): Observable<string[]> {
-    return this.api.get<string[]>('/posts/tags');
+  /** Tags em uso nos posts publicados do publicador (chips de filtro do portal). */
+  publishedTags(handle: string): Observable<string[]> {
+    return this.api.get<string[]>(`/p/${handle}/posts/tags`);
   }
 
-  getPublished(slug: string): Observable<PublicPost> {
-    return this.api.get<PublicPost>(`/posts/${slug}`);
+  getPublished(handle: string, slug: string): Observable<PublicPost> {
+    return this.api.get<PublicPost>(`/p/${handle}/posts/${slug}`);
   }
 }

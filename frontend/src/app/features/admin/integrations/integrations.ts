@@ -182,80 +182,61 @@ import { LinkedInStatus, SocialService } from '../../../core/social/social.servi
         </div>
       </form>
 
-      <!-- LinkedIn: app próprio do usuário + conexão OAuth da conta -->
-      <form [formGroup]="linkedInForm" (ngSubmit)="saveLinkedIn()" class="mt-8 flex flex-col gap-2">
-        <section class="rounded-xl border border-gray-200 p-5 dark:border-gray-800">
-          <div class="mb-1 flex items-center justify-between gap-2">
-            <h2 class="inline-flex items-center gap-2 font-medium">
-              <mat-icon class="text-indigo-500">share</mat-icon>
-              LinkedIn
-            </h2>
-            <span
-              class="rounded-full px-2.5 py-0.5 text-xs font-medium"
-              [class]="linkedInBadge().classes"
-              >{{ linkedInBadge().label }}</span
-            >
-          </div>
-          <p class="mb-4 text-xs text-gray-500 dark:text-gray-400">
-            Publique suas postagens direto no seu feed. Crie um app em
-            <code class="font-mono">developers.linkedin.com</code> com o produto "Share on
-            LinkedIn" e "Sign In with LinkedIn using OpenID Connect", cadastre a redirect URL
-            <code class="font-mono">{{ callbackUrl() }}</code> e informe as credenciais abaixo.
-            @if (linkedIn()?.clientIdHint; as hint) {
-              Client ID atual: <code class="font-mono">{{ hint }}</code
-              >.
-            }
+      <!-- LinkedIn: conexão da conta do publicador (o app é da plataforma). -->
+      <section class="mt-8 rounded-xl border border-gray-200 p-5 dark:border-gray-800">
+        <div class="mb-1 flex items-center justify-between gap-2">
+          <h2 class="inline-flex items-center gap-2 font-medium">
+            <mat-icon class="text-indigo-500">share</mat-icon>
+            LinkedIn
+          </h2>
+          <span
+            class="rounded-full px-2.5 py-0.5 text-xs font-medium"
+            [class]="linkedInBadge().classes"
+            >{{ linkedInBadge().label }}</span
+          >
+        </div>
+        <p class="mb-4 text-xs text-gray-500 dark:text-gray-400">
+          Conecte sua conta para publicar suas postagens direto no seu feed.
+        </p>
+
+        @if (linkedInMessage(); as msg) {
+          <p
+            class="mb-3 rounded-lg px-3 py-2 text-sm"
+            [class]="
+              msg.ok
+                ? 'bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-300'
+                : 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300'
+            "
+            role="status"
+          >
+            {{ msg.text }}
           </p>
+        }
 
-          @if (linkedInMessage(); as msg) {
-            <p
-              class="mb-3 rounded-lg px-3 py-2 text-sm"
-              [class]="
-                msg.ok
-                  ? 'bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-300'
-                  : 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300'
-              "
-              role="status"
-            >
-              {{ msg.text }}
+        <div class="flex flex-wrap items-center gap-2">
+          @if (!linkedIn()?.configured) {
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+              A integração com o LinkedIn ainda não foi configurada pelo administrador do sistema.
             </p>
-          }
-
-          <div class="flex flex-col gap-2 sm:flex-row">
-            <mat-form-field appearance="outline" class="flex-1">
-              <mat-label>Client ID</mat-label>
-              <input matInput formControlName="clientId" autocomplete="off" />
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="flex-1">
-              <mat-label>Client Secret</mat-label>
-              <input matInput type="password" formControlName="clientSecret" autocomplete="off" />
-            </mat-form-field>
-          </div>
-
-          <div class="flex flex-wrap items-center gap-2">
-            <button matButton type="submit" [disabled]="linkedInSaving()">Salvar credenciais</button>
-            @if (linkedIn()?.configured) {
-              @if (linkedIn()?.connected) {
-                <span class="text-sm text-gray-600 dark:text-gray-300">
-                  Conectado como <strong>{{ linkedIn()?.memberName ?? 'membro' }}</strong>
-                  @if (linkedIn()?.tokenExpiresAt) {
-                    (até {{ linkedIn()!.tokenExpiresAt | date: 'shortDate' }})
-                  }
-                </span>
-                <button matButton type="button" (click)="disconnectLinkedIn()" [disabled]="linkedInSaving()">
-                  <mat-icon>link_off</mat-icon>
-                  Desconectar
-                </button>
-              } @else {
-                <button matButton="filled" type="button" (click)="connectLinkedIn()" [disabled]="linkedInSaving()">
-                  <mat-icon>link</mat-icon>
-                  Conectar minha conta
-                </button>
+          } @else if (linkedIn()?.connected) {
+            <span class="text-sm text-gray-600 dark:text-gray-300">
+              Conectado como <strong>{{ linkedIn()?.memberName ?? 'membro' }}</strong>
+              @if (linkedIn()?.tokenExpiresAt) {
+                (até {{ linkedIn()!.tokenExpiresAt | date: 'shortDate' }})
               }
-            }
-          </div>
-        </section>
-      </form>
+            </span>
+            <button matButton type="button" (click)="disconnectLinkedIn()" [disabled]="linkedInSaving()">
+              <mat-icon>link_off</mat-icon>
+              Desconectar
+            </button>
+          } @else {
+            <button matButton="filled" type="button" (click)="connectLinkedIn()" [disabled]="linkedInSaving()">
+              <mat-icon>link</mat-icon>
+              Conectar minha conta
+            </button>
+          }
+        </div>
+      </section>
     </div>
   `,
 })
@@ -294,20 +275,10 @@ export class Integrations {
     () => this.settings() !== null && this.providerValue() !== this.settings()!.provider,
   );
 
-  // --- LinkedIn ---
+  // --- LinkedIn (conexão da conta do publicador) ---
   protected readonly linkedIn = signal<LinkedInStatus | null>(null);
   protected readonly linkedInSaving = signal(false);
   protected readonly linkedInMessage = signal<{ ok: boolean; text: string } | null>(null);
-
-  protected readonly linkedInForm = this.fb.group({
-    clientId: ['', Validators.required],
-    clientSecret: ['', Validators.required],
-  });
-
-  /** Redirect URL a cadastrar no app LinkedIn (mesma origem do painel). */
-  protected readonly callbackUrl = computed(
-    () => `${this.document.location?.origin ?? ''}/api/admin/social/linkedin/callback`,
-  );
 
   constructor() {
     this.assistant.getSettings().subscribe({
@@ -351,27 +322,6 @@ export class Integrations {
       label: 'Não configurado',
       classes: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
     };
-  }
-
-  protected saveLinkedIn(): void {
-    if (this.linkedInForm.invalid || this.linkedInSaving()) {
-      return;
-    }
-    const raw = this.linkedInForm.getRawValue();
-    this.linkedInSaving.set(true);
-    this.linkedInMessage.set(null);
-    this.social.saveLinkedInCredentials(raw.clientId.trim(), raw.clientSecret.trim()).subscribe({
-      next: (status) => {
-        this.linkedIn.set(status);
-        this.linkedInForm.reset({ clientId: '', clientSecret: '' });
-        this.linkedInSaving.set(false);
-        this.linkedInMessage.set({ ok: true, text: 'Credenciais salvas. Agora conecte sua conta.' });
-      },
-      error: () => {
-        this.linkedInSaving.set(false);
-        this.linkedInMessage.set({ ok: false, text: 'Falha ao salvar as credenciais.' });
-      },
-    });
   }
 
   protected connectLinkedIn(): void {

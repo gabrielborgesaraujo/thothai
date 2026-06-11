@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, PLATFORM_ID } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, PLATFORM_ID, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -27,12 +27,21 @@ import { MetricsService } from '../../../core/metrics/metrics.service';
               class="rounded-lg px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
               >Início</a
             >
-            <a
-              routerLink="/posts"
-              routerLinkActive="text-gray-900 dark:text-white font-medium"
-              class="rounded-lg px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
-              >Publicações</a
-            >
+            @if (currentHandle(); as handle) {
+              <a
+                [routerLink]="['/', handle]"
+                routerLinkActive="text-gray-900 dark:text-white font-medium"
+                [routerLinkActiveOptions]="{ exact: true }"
+                class="rounded-lg px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
+                >Currículo</a
+              >
+              <a
+                [routerLink]="['/', handle, 'posts']"
+                routerLinkActive="text-gray-900 dark:text-white font-medium"
+                class="rounded-lg px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
+                >Publicações</a
+              >
+            }
             <app-theme-toggle />
           </div>
         </nav>
@@ -59,18 +68,31 @@ import { MetricsService } from '../../../core/metrics/metrics.service';
 })
 export class PublicLayout {
   protected readonly year = new Date().getFullYear();
+  /** Handle do publicador corrente (primeiro segmento da URL), para a navegação contextual. */
+  protected readonly currentHandle = signal<string | null>(null);
 
   constructor() {
-    // Beacon de métricas: registra cada navegação no portal, apenas no navegador (não no SSR,
-    // que renderiza para crawlers e inflaria os números).
-    if (isPlatformBrowser(inject(PLATFORM_ID))) {
-      const metrics = inject(MetricsService);
-      inject(Router)
-        .events.pipe(
-          filter((event): event is NavigationEnd => event instanceof NavigationEnd),
-          takeUntilDestroyed(),
-        )
-        .subscribe((event) => metrics.recordView(event.urlAfterRedirects.split('?')[0]));
-    }
+    const router = inject(Router);
+    const isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+    const metrics = isBrowser ? inject(MetricsService) : null;
+
+    const apply = (url: string) => {
+      const first = url.split('?')[0].split('/').filter(Boolean)[0] ?? '';
+      this.currentHandle.set(first && !NON_HANDLE_SEGMENTS.has(first) ? first : null);
+    };
+    apply(router.url);
+    router.events
+      .pipe(
+        filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+        takeUntilDestroyed(),
+      )
+      .subscribe((event) => {
+        apply(event.urlAfterRedirects);
+        // Beacon de métricas só no navegador (não no SSR, que renderiza para crawlers).
+        metrics?.recordView(event.urlAfterRedirects.split('?')[0]);
+      });
   }
 }
+
+/** Primeiros segmentos que não são handle de publicador. */
+const NON_HANDLE_SEGMENTS = new Set(['registro', 'admin']);

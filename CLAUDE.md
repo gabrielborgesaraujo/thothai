@@ -12,10 +12,17 @@ public SEO-optimized reading portal. See [docs/](docs/) for the full MVP spec (P
 
 The project is at an early scaffolding stage — most domain code is not yet written.
 
-### Phasing constraint (affects schema/query design)
-The MVP is **single-publisher** but must transition to **multi-tenant** without structural
-refactoring. Therefore every persisted entity must carry a tenant isolation key, and queries
-must apply authorship filters — even though only one admin user exists in the MVP (RNF03).
+### Phase 2 (current): multi-tenant platform
+The platform is now **multi-tenant**: multiple publishers, each with a public hub at
+`/{handle}` (curriculum + posts), isolated by `tenant_id` on every entity (RNF03). The tenant
+of a request is resolved by `TenantContextFilter` (identity module): from the authenticated
+principal (`AppUserDetails`) for `/api/admin/**`, or from the handle for public
+`/api/p/{handle}/**` routes (unknown/inactive handle → 404). New publishers' tenant = their
+handle. Roles: `SYSTEM_ADMIN` (manages users at `/api/system/users` and macro integrations
+like the platform LinkedIn app at `/api/system/integrations/*`) and `PUBLISHER` (own content
+and own AI/Tavily keys — env-var key fallback only applies to the system tenant). Self-signup
+(`POST /api/auth/register`) creates PENDING accounts that can't log in until approved.
+The site root is a platform landing with the publisher directory (`/api/publishers`).
 
 ## Monorepo layout
 

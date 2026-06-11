@@ -2,12 +2,17 @@ import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from '../api.service';
 
-/** Estado da conexão LinkedIn — segredos aparecem só como sufixo de conferência. */
+/** Estado da conexão LinkedIn do publicador (o app é da plataforma). */
 export interface LinkedInStatus {
   configured: boolean;
   connected: boolean;
   memberName: string | null;
   tokenExpiresAt: string | null;
+}
+
+/** Estado da integração macro (app da plataforma) — visão do admin do sistema. */
+export interface LinkedInAppStatus {
+  configured: boolean;
   clientIdHint: string | null;
 }
 
@@ -24,8 +29,16 @@ export class SocialService {
     return this.api.get<LinkedInStatus>('/admin/social/linkedin');
   }
 
-  saveLinkedInCredentials(clientId: string, clientSecret: string): Observable<LinkedInStatus> {
-    return this.api.put<LinkedInStatus>('/admin/social/linkedin', { clientId, clientSecret });
+  // --- Integração macro (admin do sistema) ---
+  linkedInAppStatus(): Observable<LinkedInAppStatus> {
+    return this.api.get<LinkedInAppStatus>('/system/integrations/linkedin');
+  }
+
+  saveLinkedInApp(clientId: string, clientSecret: string): Observable<LinkedInAppStatus> {
+    return this.api.put<LinkedInAppStatus>('/system/integrations/linkedin', {
+      clientId,
+      clientSecret,
+    });
   }
 
   /** URL de autorização OAuth — redirecione o navegador para ela. */

@@ -1,7 +1,7 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { catchError, Observable, of, tap } from 'rxjs';
 import { ApiService } from '../api.service';
-import { AuthUser } from './auth.models';
+import { AuthUser, RegisterRequest } from './auth.models';
 
 /**
  * Estado de autenticação do admin (RF01). A sessão vive no cookie HttpOnly do backend; aqui
@@ -23,6 +23,11 @@ export class AuthService {
 
   logout(): Observable<void> {
     return this.api.post<void>('/auth/logout').pipe(tap(() => this.currentUser.set(null)));
+  }
+
+  /** Auto-registro de publicador (Fase 2): nasce pendente até a aprovação do administrador. */
+  register(request: RegisterRequest): Observable<unknown> {
+    return this.api.post<unknown>('/auth/register', request);
   }
 
   /** Troca a senha do admin (RF01). */

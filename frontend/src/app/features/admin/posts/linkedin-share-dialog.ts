@@ -8,6 +8,7 @@ import { PostSummary } from '../../../core/content/post.models';
 import { PostService } from '../../../core/content/post.service';
 import { AssistantService } from '../../../core/assistant/assistant.service';
 import { SocialService } from '../../../core/social/social.service';
+import { AuthService } from '../../../core/auth/auth.service';
 
 /**
  * Publica uma postagem no feed do LinkedIn da conta conectada: texto editável (pré-preenchido
@@ -108,6 +109,7 @@ export class LinkedInShareDialog {
   private readonly social = inject(SocialService);
   private readonly posts = inject(PostService);
   private readonly assistant = inject(AssistantService);
+  private readonly auth = inject(AuthService);
   private readonly document = inject(DOCUMENT);
 
   readonly post = input.required<PostSummary>();
@@ -140,7 +142,8 @@ export class LinkedInShareDialog {
   }
 
   protected articleUrl(): string {
-    return `${this.document.location?.origin ?? ''}/posts/${this.post().slug}`;
+    const handle = this.auth.user()?.handle ?? '';
+    return `${this.document.location?.origin ?? ''}/${handle}/posts/${this.post().slug}`;
   }
 
   /** Busca o corpo completo e pede à IA uma isca de LinkedIn para a postagem. */

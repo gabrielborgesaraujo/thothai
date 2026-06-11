@@ -96,7 +96,7 @@ import { ViewToggle } from '../../../../shared/view-toggle';
           @for (post of data.items; track post.id) {
             <li>
               <a
-                [routerLink]="['/posts', post.slug]"
+                [routerLink]="['/', handle(), 'posts', post.slug]"
                 class="group flex h-full flex-col overflow-hidden rounded-xl border border-gray-200 transition-all hover:border-indigo-300 hover:shadow-sm dark:border-gray-800 dark:hover:border-indigo-700"
               >
                 @if (view.mode() === 'mosaic') {
@@ -187,6 +187,7 @@ export class PublicPostList {
   protected readonly tags = signal<string[]>([]);
   protected readonly query = signal('');
   protected readonly activeTag = signal<string | null>(null);
+  protected readonly handle = signal('');
   /** Mosaico por padrão; a escolha persiste no navegador. */
   protected readonly view = persistedViewMode('thothai-posts-view', 'mosaic');
 
@@ -197,9 +198,12 @@ export class PublicPostList {
       content: 'Artigos, tutoriais e notas técnicas publicados no ThothAI.',
     });
 
-    this.postService.publishedTags().subscribe({
-      next: (tags) => this.tags.set(tags),
-      error: () => this.tags.set([]),
+    this.route.paramMap.subscribe((params) => {
+      this.handle.set(params.get('handle') ?? '');
+      this.postService.publishedTags(this.handle()).subscribe({
+        next: (tags) => this.tags.set(tags),
+        error: () => this.tags.set([]),
+      });
     });
 
     // A URL é a fonte da verdade dos filtros; cada mudança dispara um novo carregamento.
@@ -239,8 +243,9 @@ export class PublicPostList {
   }
 
   private load(page: number, q: string, tag: string | null): void {
+    const handle = this.handle() || (this.route.snapshot.paramMap.get('handle') ?? '');
     // A requisição é registrada como pending task: o SSR aguarda a resposta antes de renderizar.
-    this.postService.listPublished(page, 10, q, tag ?? undefined).subscribe({
+    this.postService.listPublished(handle, page, 10, q, tag ?? undefined).subscribe({
       next: (data) => this.result.set(data),
       error: () => this.error.set('Não foi possível carregar as publicações.'),
     });

@@ -39,6 +39,16 @@ export const adminRoutes: Routes = [
         path: 'account',
         loadComponent: () => import('./account/account').then((m) => m.Account),
       },
+      // Gestão da plataforma (Fase 2) — visível/permitido só para o admin do sistema.
+      {
+        path: 'system/users',
+        loadComponent: () => import('./system/system-users').then((m) => m.SystemUsers),
+      },
+      {
+        path: 'system/integrations',
+        loadComponent: () =>
+          import('./system/system-integrations').then((m) => m.SystemIntegrations),
+      },
       // Cartão de identidade (RF07).
       {
         path: 'profile',

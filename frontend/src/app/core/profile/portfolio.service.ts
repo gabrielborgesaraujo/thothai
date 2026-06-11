@@ -8,8 +8,8 @@ import { PortfolioEntry, PortfolioEntryRequest } from './profile.models';
 export class PortfolioService {
   private readonly api = inject(ApiService);
 
-  listPublic(): Observable<PortfolioEntry[]> {
-    return this.api.get<PortfolioEntry[]>('/portfolio');
+  listPublic(handle: string): Observable<PortfolioEntry[]> {
+    return this.api.get<PortfolioEntry[]>(`/p/${handle}/portfolio`);
   }
 
   listAdmin(): Observable<PortfolioEntry[]> {
