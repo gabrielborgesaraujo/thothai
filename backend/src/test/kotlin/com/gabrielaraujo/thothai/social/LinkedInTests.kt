@@ -27,24 +27,29 @@ class LinkedInTests {
     private lateinit var repository: LinkedInConnectionRepository
 
     @Autowired
+    private lateinit var appSettings: LinkedInAppSettingsRepository
+
+    @Autowired
     private lateinit var api: LinkedInApi
 
     @BeforeEach
     fun cleanUp() {
         repository.deleteAll()
+        appSettings.deleteAll()
         (api as FakeLinkedInApi).shared.clear()
     }
 
     @Test
-    fun `fluxo completo - credenciais, autorizacao, callback e publicacao`() {
+    fun `fluxo completo - app do sistema, autorizacao, callback e publicacao`() {
         assertFalse(service.status().configured)
-        // Sem credenciais não há URL de autorização.
+        // Sem o app da plataforma configurado não há URL de autorização.
         assertFailsWith<InvalidRequestException> { service.authorizeUrl() }
 
-        val configured = service.saveCredentials(LinkedInCredentialsRequest("client-abcd", "segredo"))
-        assertTrue(configured.configured)
-        assertFalse(configured.connected)
-        assertEquals("••••abcd", configured.clientIdHint)
+        val app = service.saveAppCredentials(LinkedInCredentialsRequest("client-abcd", "segredo"))
+        assertTrue(app.configured)
+        assertEquals("••••abcd", app.clientIdHint)
+        assertTrue(service.status().configured)
+        assertFalse(service.status().connected)
 
         val url = service.authorizeUrl()
         assertTrue(url.startsWith("https://www.linkedin.com/oauth/v2/authorization"))
@@ -68,12 +73,12 @@ class LinkedInTests {
     }
 
     @Test
-    fun `publicar sem conexao e rejeitado e desconectar preserva as credenciais`() {
+    fun `publicar sem conexao e rejeitado e desconectar preserva o app do sistema`() {
         assertFailsWith<InvalidRequestException> {
             service.share(LinkedInShareRequest(text = "oi"))
         }
 
-        service.saveCredentials(LinkedInCredentialsRequest("client-1234", "segredo"))
+        service.saveAppCredentials(LinkedInCredentialsRequest("client-1234", "segredo"))
         val state = Regex("state=([a-f0-9]+)").find(service.authorizeUrl())!!.groupValues[1]
         service.handleCallback("code", state)
         assertTrue(service.status().connected)

@@ -25,11 +25,6 @@ internal class LinkedInController(
     @GetMapping
     fun status(): LinkedInStatusResponse = linkedIn.status()
 
-    @PutMapping
-    fun saveCredentials(
-        @Valid @RequestBody request: LinkedInCredentialsRequest,
-    ): LinkedInStatusResponse = linkedIn.saveCredentials(request)
-
     /** URL de autorização OAuth — o frontend redireciona o navegador para ela. */
     @GetMapping("/authorize-url")
     fun authorizeUrl(): Map<String, String> = mapOf("url" to linkedIn.authorizeUrl())

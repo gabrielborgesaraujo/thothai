@@ -22,30 +22,46 @@ class PublicFeedTests {
     @Autowired
     private lateinit var feedController: PublicFeedController
 
+    @Autowired
+    private lateinit var users: com.gabrielaraujo.thothai.identity.UserAccountRepository
+
     @BeforeEach
     fun cleanUp() {
         posts.deleteAll()
+        // O feed/sitemap monta URLs por handle: garante um publicador ativo dono do tenant
+        // 'default' (onde o postService de teste cria os posts), sem depender de outros testes.
+        users.deleteAll()
+        com.gabrielaraujo.thothai.shared.TenantContext.runAs("default") {
+            users.save(
+                com.gabrielaraujo.thothai.identity.UserAccount(
+                    username = "feedpub",
+                    passwordHash = "hash",
+                    handle = "feedpub",
+                ),
+            )
+        }
     }
 
     @Test
-    fun `feed lista publicados com titulo escapado e ignora rascunhos`() {
+    fun `feed lista publicados com link por handle e ignora rascunhos`() {
         postService.create(post("Kotlin & Coroutines", PostStatus.PUBLISHED))
         postService.create(post("Rascunho secreto", PostStatus.DRAFT))
 
         val feed = feedController.feed()
         assertContains(feed, "<title>Kotlin &amp; Coroutines</title>")
-        assertContains(feed, "/posts/kotlin-coroutines</link>")
+        assertContains(feed, "/feedpub/posts/kotlin-coroutines</link>")
         assertFalse(feed.contains("Rascunho secreto"))
     }
 
     @Test
-    fun `sitemap inclui home, listagem e slugs publicados`() {
+    fun `sitemap inclui home, paginas do publicador e slugs publicados`() {
         postService.create(post("Post Publicado", PostStatus.PUBLISHED))
 
         val sitemap = feedController.sitemap()
         assertContains(sitemap, "<loc>http://localhost:8088/</loc>")
-        assertContains(sitemap, "<loc>http://localhost:8088/posts</loc>")
-        assertContains(sitemap, "<loc>http://localhost:8088/posts/post-publicado</loc>")
+        assertContains(sitemap, "<loc>http://localhost:8088/feedpub</loc>")
+        assertContains(sitemap, "<loc>http://localhost:8088/feedpub/posts</loc>")
+        assertContains(sitemap, "<loc>http://localhost:8088/feedpub/posts/post-publicado</loc>")
     }
 
     @Test

@@ -7,17 +7,13 @@ import jakarta.persistence.Table
 import java.time.Instant
 
 /**
- * Conexão do LinkedIn do publicador: credenciais do app (portal de desenvolvedores do LinkedIn)
- * e o token OAuth do membro (validade ~60 dias) usado para publicar em nome dele.
- * Segredos nunca saem inteiros pela API.
+ * Conexão do LinkedIn do publicador: o token OAuth do membro (validade ~60 dias) usado para
+ * publicar em nome dele. As credenciais do APP são da plataforma ([LinkedInAppSettings],
+ * geridas pelo administrador do sistema). Segredos nunca saem inteiros pela API.
  */
 @Entity
 @Table(name = "linkedin_connections")
 class LinkedInConnection(
-    @Column(name = "client_id", length = 255)
-    var clientId: String? = null,
-    @Column(name = "client_secret", length = 255)
-    var clientSecret: String? = null,
     @Column(name = "access_token", length = 2048)
     var accessToken: String? = null,
     @Column(name = "token_expires_at")

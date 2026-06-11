@@ -1,5 +1,6 @@
 package com.gabrielaraujo.thothai.metrics
 
+import com.gabrielaraujo.thothai.identity.IdentityQueries
 import com.gabrielaraujo.thothai.shared.TenantContext
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
@@ -9,20 +10,22 @@ import java.net.URI
 import java.time.LocalDate
 
 /**
- * Métricas de acesso/leitura do portal (dashboard do admin). O registro é best-effort e
- * tolerante: caminhos fora do formato esperado, métricas desconhecidas e bots são simplesmente
- * ignorados (beacon público — nunca propaga erro para o leitor).
+ * Métricas de acesso/leitura do portal (dashboard de cada publicador). O caminho público carrega
+ * o handle (`/{handle}/posts/slug`): o acesso é creditado ao tenant do publicador e armazenado
+ * com o caminho relativo (sem o handle), então o dashboard de cada um só vê o que é seu (RNF03).
+ * O registro é best-effort: caminhos estranhos, handles desconhecidos e bots são ignorados.
  */
 @Service
 @Transactional
 internal class MetricsService(
     private val pageViews: PageViewRepository,
     private val referrers: ReferrerViewRepository,
+    private val identity: IdentityQueries,
     @param:Value("\${thothai.public-origin}") publicOrigin: String,
 ) {
     private val ownHost = runCatching { URI(publicOrigin).host?.lowercase() }.getOrNull()
 
-    /** Registra um acesso ('view') ou leitura ('read'), descartando bots e caminhos estranhos. */
+    /** Registra um acesso ('view') ou leitura ('read') no tenant dono do handle do caminho. */
     fun record(
         path: String?,
         metric: String?,
@@ -32,17 +35,16 @@ internal class MetricsService(
         if (userAgent != null && BOT_AGENT.containsMatchIn(userAgent)) {
             return
         }
-        val normalizedPath = normalizePath(path) ?: return
+        val resolved = resolve(path) ?: return
         val normalizedMetric = metric?.trim()?.lowercase().takeIf { it == "read" } ?: "view"
         // Leitura só faz sentido em páginas de artigo.
-        if (normalizedMetric == "read" && !normalizedPath.startsWith("/posts/")) {
+        if (normalizedMetric == "read" && !resolved.path.startsWith("/posts/")) {
             return
         }
-        val tenant = TenantContext.currentTenant()
         val today = LocalDate.now()
-        pageViews.increment(tenant, today, normalizedPath, normalizedMetric)
+        pageViews.increment(resolved.tenantId, today, resolved.path, normalizedMetric)
         if (normalizedMetric == "view") {
-            referrerHost(referrer)?.let { referrers.increment(tenant, today, it) }
+            referrerHost(referrer)?.let { referrers.increment(resolved.tenantId, today, it) }
         }
     }
 
@@ -84,22 +86,25 @@ internal class MetricsService(
         )
     }
 
+    private data class ResolvedPath(
+        val tenantId: String,
+        val path: String,
+    )
+
     /**
-     * Aceita apenas os caminhos do portal público: home, listagem e páginas de leitura
-     * (`/posts/slug`). Qualquer outra coisa (admin, querystrings, lixo de bot) é descartada.
+     * Resolve `/{handle}[/posts[/slug]]` para (tenant do publicador, caminho relativo).
+     * A landing da plataforma ('/') e handles desconhecidos não contam.
      */
-    private fun normalizePath(path: String?): String? {
-        val cleaned =
-            path
-                ?.trim()
-                ?.substringBefore('?')
-                ?.trimEnd('/')
-                ?.ifBlank { "/" } ?: return null
-        return when {
-            cleaned == "/" || cleaned == "/posts" -> cleaned
-            POST_PATH.matches(cleaned) -> cleaned
-            else -> null
+    private fun resolve(path: String?): ResolvedPath? {
+        val cleaned = path?.trim()?.substringBefore('?')?.trimEnd('/') ?: return null
+        val match = PUBLISHER_PATH.find(cleaned) ?: return null
+        val handle = match.groupValues[1]
+        val rest = match.groupValues[2].ifBlank { "/" }
+        if (rest != "/" && rest != "/posts" && !POST_PATH.matches(rest)) {
+            return null
         }
+        val tenant = identity.tenantForHandle(handle) ?: return null
+        return ResolvedPath(tenant, rest)
     }
 
     /** Host do referrer externo (minúsculo, sem `www.`); o próprio site e lixo são descartados. */
@@ -120,6 +125,7 @@ internal class MetricsService(
         const val TOP_POSTS = 5
         const val TOP_REFERRERS = 5
         const val READS_LOOKUP = 50
+        val PUBLISHER_PATH = Regex("^/([a-z0-9-]{1,64})(/.*)?$")
         val POST_PATH = Regex("^/posts/[a-z0-9-]{1,160}$")
         val BOT_AGENT =
             Regex(

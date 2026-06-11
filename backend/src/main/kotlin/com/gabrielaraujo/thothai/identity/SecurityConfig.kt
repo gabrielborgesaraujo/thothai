@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpMethod
@@ -43,7 +44,7 @@ import java.util.function.Supplier
 @Configuration
 @EnableWebSecurity
 @EnableConfigurationProperties(AdminProperties::class, CorsProperties::class)
-class SecurityConfig {
+internal class SecurityConfig {
     @Bean
     fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder()
 
@@ -73,7 +74,10 @@ class SecurityConfig {
     }
 
     @Bean
-    fun filterChain(http: HttpSecurity): SecurityFilterChain {
+    fun filterChain(
+        http: HttpSecurity,
+        tenantContextFilter: TenantContextFilter,
+    ): SecurityFilterChain {
         http
             .cors {}
             .csrf { csrf ->
@@ -83,12 +87,15 @@ class SecurityConfig {
                 // só derrubaria o primeiro acesso (cookie ainda não materializado no navegador).
                 csrf.ignoringRequestMatchers("/api/metrics/views")
             }.authorizeHttpRequests { auth ->
-                auth.requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                auth.requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register").permitAll()
                 auth.requestMatchers(HttpMethod.POST, "/api/metrics/views").permitAll()
-                auth.requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll()
-                auth.requestMatchers(HttpMethod.GET, "/api/profile", "/api/portfolio/**").permitAll()
+                // Portal público por publicador (/api/p/{handle}/…) e diretório da plataforma.
+                auth.requestMatchers(HttpMethod.GET, "/api/p/**", "/api/publishers").permitAll()
                 auth.requestMatchers("/actuator/health").permitAll()
-                auth.requestMatchers("/api/admin/**").hasRole("ADMIN")
+                // Gestão da plataforma (usuários e integrações macro) — só o admin do sistema.
+                auth.requestMatchers("/api/system/**").hasRole("SYSTEM_ADMIN")
+                // Painel do publicador (conteúdo/chaves próprios) — qualquer usuário ativo.
+                auth.requestMatchers("/api/admin/**").hasAnyRole("PUBLISHER", "SYSTEM_ADMIN")
                 auth.requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
                 auth.anyRequest().permitAll()
             }.sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED) }
@@ -100,8 +107,18 @@ class SecurityConfig {
                     .logoutUrl("/api/auth/logout")
                     .logoutSuccessHandler(HttpStatusReturningLogoutSuccessHandler(HttpStatus.NO_CONTENT))
             }.addFilterAfter(CsrfCookieFilter(), org.springframework.security.web.csrf.CsrfFilter::class.java)
+            // Tenant por requisição (sessão ou handle público), após a autenticação estar resolvida.
+            .addFilterAfter(tenantContextFilter, org.springframework.security.web.access.intercept.AuthorizationFilter::class.java)
         return http.build()
     }
+
+    @Bean
+    fun tenantContextFilter(users: UserAccountRepository): TenantContextFilter = TenantContextFilter(users)
+
+    /** O filtro participa apenas da cadeia do Security — sem registro global no container. */
+    @Bean
+    fun tenantContextFilterRegistration(filter: TenantContextFilter): FilterRegistrationBean<TenantContextFilter> =
+        FilterRegistrationBean(filter).apply { isEnabled = false }
 }
 
 /**

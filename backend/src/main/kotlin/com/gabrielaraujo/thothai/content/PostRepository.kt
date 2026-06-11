@@ -127,6 +127,12 @@ internal interface PostRepository : JpaRepository<Post, UUID> {
         now: Instant,
     ): List<Post>
 
+    /** Publicados de TODOS os tenants (feed/sitemap da plataforma — URLs montadas por handle). */
+    fun findByStatusOrderByPublishedAtDesc(
+        status: PostStatus,
+        pageable: Pageable,
+    ): List<Post>
+
     fun findByTenantIdAndStatusAndSlug(
         tenantId: String,
         status: PostStatus,

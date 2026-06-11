@@ -17,4 +17,18 @@ object TenantContext {
     fun setCurrentTenant(tenant: String) = holder.set(tenant)
 
     fun clear() = holder.remove()
+
+    /** Executa [block] sob outro tenant, restaurando o anterior ao final. */
+    fun <T> runAs(
+        tenant: String,
+        block: () -> T,
+    ): T {
+        val previous = holder.get()
+        holder.set(tenant)
+        try {
+            return block()
+        } finally {
+            holder.set(previous)
+        }
+    }
 }

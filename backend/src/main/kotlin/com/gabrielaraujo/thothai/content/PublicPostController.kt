@@ -9,11 +9,11 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 /**
- * Leitura pública de postagens publicadas (RF06). Rotas GET liberadas no SecurityConfig
- * (prefixo /api/posts).
+ * Leitura pública das postagens de um publicador (RF06). O tenant é resolvido pelo handle do
+ * caminho (TenantContextFilter); rotas GET liberadas no SecurityConfig (prefixo /api/p).
  */
 @RestController
-@RequestMapping("/api/posts")
+@RequestMapping("/api/p/{handle}/posts")
 internal class PublicPostController(
     private val postService: PostService,
 ) {

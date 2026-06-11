@@ -30,11 +30,16 @@ data class LinkedInShareResponse(
     val postId: String,
 )
 
-/** Estado da conexão — segredos aparecem apenas como sufixo de conferência. */
+/** Estado da conexão do publicador (o app é da plataforma; `configured` reflete isso). */
 data class LinkedInStatusResponse(
     val configured: Boolean,
     val connected: Boolean,
     val memberName: String?,
     val tokenExpiresAt: Instant?,
+)
+
+/** Estado da integração macro (app da plataforma) — visão do admin do sistema. */
+data class LinkedInAppResponse(
+    val configured: Boolean,
     val clientIdHint: String?,
 )

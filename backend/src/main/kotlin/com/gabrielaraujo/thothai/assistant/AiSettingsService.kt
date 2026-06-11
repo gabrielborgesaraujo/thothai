@@ -65,14 +65,26 @@ internal class AiSettingsService(
         )
     }
 
-    /** Chave efetiva do Tavily (banco > ambiente); em branco, a busca viva fica desativada. */
+    /** Chave efetiva do Tavily (banco > ambiente do sistema); em branco, a busca viva é desativada. */
     @Transactional(readOnly = true)
-    fun resolveTavilyKey(): String = find()?.tavilyApiKey ?: searchProperties.tavily.apiKey
+    fun resolveTavilyKey(): String = find()?.tavilyApiKey ?: envTavilyKey()
+
+    /** Fallback de ambiente do Tavily: só para o tenant do sistema (Fase 2). */
+    private fun envTavilyKey(): String =
+        if (TenantContext.currentTenant() == TenantContext.DEFAULT_TENANT) searchProperties.tavily.apiKey else ""
 
     private fun find(): AiSettings? = repository.findByTenantId(TenantContext.currentTenant())
 
-    /** Só a Anthropic tem fallback de chave por variável de ambiente. */
-    private fun envKeyFor(provider: AiProvider): String = if (provider == AiProvider.ANTHROPIC) aiProperties.claude.apiKey else ""
+    /**
+     * Fallback de chave por variável de ambiente: só Anthropic e SÓ para o tenant do sistema —
+     * na Fase 2 cada publicador traz as próprias chaves.
+     */
+    private fun envKeyFor(provider: AiProvider): String =
+        if (provider == AiProvider.ANTHROPIC && TenantContext.currentTenant() == TenantContext.DEFAULT_TENANT) {
+            aiProperties.claude.apiKey
+        } else {
+            ""
+        }
 
     private fun defaultModelFor(provider: AiProvider): String? =
         if (provider == AiProvider.ANTHROPIC) aiProperties.claude.model else provider.defaultModel
@@ -102,7 +114,7 @@ internal class AiSettingsService(
                         requiresBaseUrl = it.requiresBaseUrl,
                     )
                 },
-            tavilySource = source(tavilyCustom, searchProperties.tavily.apiKey),
+            tavilySource = source(tavilyCustom, envTavilyKey()),
             tavilyKeyHint = settings?.tavilyApiKey?.let(::keyHint),
         )
     }

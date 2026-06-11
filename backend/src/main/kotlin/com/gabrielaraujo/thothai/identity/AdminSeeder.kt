@@ -8,28 +8,34 @@ import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Component
 
 /**
- * Garante a existência do administrador único do tenant padrão na subida da aplicação (RF01),
- * a partir das credenciais em `thothai.admin`. Não sobrescreve um admin já existente.
+ * Garante a existência do administrador do SISTEMA na subida da aplicação, a partir das
+ * credenciais em `thothai.admin`. Roda apenas com a base de usuários vazia (instalação nova);
+ * o admin também é publicador, no tenant padrão.
  */
 @Component
 internal class AdminSeeder(
-    private val repository: AdminUserRepository,
+    private val repository: UserAccountRepository,
     private val passwordEncoder: PasswordEncoder,
     private val properties: AdminProperties,
 ) : ApplicationRunner {
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun run(args: ApplicationArguments) {
-        val tenant = TenantContext.DEFAULT_TENANT
-        if (repository.existsByTenantId(tenant)) {
+        if (repository.count() > 0) {
             return
         }
-        repository.save(
-            AdminUser(
-                username = properties.username,
-                passwordHash = requireNotNull(passwordEncoder.encode(properties.password)),
-            ),
-        )
-        log.info("Administrador inicial '{}' criado para o tenant '{}'.", properties.username, tenant)
+        val username = properties.username.trim().lowercase()
+        TenantContext.runAs(TenantContext.DEFAULT_TENANT) {
+            repository.save(
+                UserAccount(
+                    username = username,
+                    passwordHash = requireNotNull(passwordEncoder.encode(properties.password)),
+                    handle = username,
+                    role = UserRole.SYSTEM_ADMIN,
+                    status = UserStatus.ACTIVE,
+                ),
+            )
+        }
+        log.info("Administrador do sistema '{}' criado (tenant '{}').", username, TenantContext.DEFAULT_TENANT)
     }
 }
