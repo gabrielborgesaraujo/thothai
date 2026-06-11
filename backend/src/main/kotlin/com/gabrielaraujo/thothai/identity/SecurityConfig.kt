@@ -79,8 +79,12 @@ class SecurityConfig {
             .csrf { csrf ->
                 csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 csrf.csrfTokenRequestHandler(SpaCsrfTokenRequestHandler())
+                // Beacon público de métricas: contador agregado sem estado de usuário — o CSRF
+                // só derrubaria o primeiro acesso (cookie ainda não materializado no navegador).
+                csrf.ignoringRequestMatchers("/api/metrics/views")
             }.authorizeHttpRequests { auth ->
                 auth.requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                auth.requestMatchers(HttpMethod.POST, "/api/metrics/views").permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/api/profile", "/api/portfolio/**").permitAll()
                 auth.requestMatchers("/actuator/health").permitAll()
