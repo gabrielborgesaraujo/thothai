@@ -60,6 +60,7 @@ data class PostSummaryResponse(
     val tags: List<String>,
     val publishedAt: Instant?,
     val scheduledAt: Instant?,
+    val linkedinSharedAt: Instant?,
 )
 
 /** Contadores para o dashboard do admin. */
@@ -70,7 +71,38 @@ data class PostStatsResponse(
     val total: Long,
 )
 
-/** Postagem publicada para leitura pública (RF06). */
+/** Link de navegação entre publicações (anterior/próxima). */
+data class PostLinkResponse(
+    val slug: String,
+    val title: String,
+)
+
+/** Publicação relacionada (tags em comum) exibida no fim da leitura. */
+data class RelatedPostResponse(
+    val slug: String,
+    val title: String,
+    val type: PostType,
+    val bannerUrl: String?,
+)
+
+/** Versão do histórico (item da listagem). */
+data class PostRevisionSummaryResponse(
+    val id: UUID,
+    val title: String,
+    val createdAt: Instant?,
+)
+
+/** Versão completa para restauração no editor. */
+data class PostRevisionResponse(
+    val id: UUID,
+    val title: String,
+    val summary: String?,
+    val body: String,
+    val bannerUrl: String?,
+    val createdAt: Instant?,
+)
+
+/** Postagem publicada para leitura pública (RF06), com navegação e relacionadas. */
 data class PublicPostResponse(
     val title: String,
     val slug: String,
@@ -80,6 +112,9 @@ data class PublicPostResponse(
     val bannerUrl: String?,
     val tags: List<String>,
     val publishedAt: Instant?,
+    val previous: PostLinkResponse?,
+    val next: PostLinkResponse?,
+    val related: List<RelatedPostResponse>,
 )
 
 internal fun Post.toResponse() =
@@ -111,16 +146,36 @@ internal fun Post.toSummary() =
         tags = tags.sorted(),
         publishedAt = publishedAt,
         scheduledAt = scheduledAt,
+        linkedinSharedAt = linkedinSharedAt,
     )
 
-internal fun Post.toPublic() =
-    PublicPostResponse(
+internal fun Post.toLink() = PostLinkResponse(slug = slug, title = title)
+
+internal fun Post.toRelated() = RelatedPostResponse(slug = slug, title = title, type = type, bannerUrl = bannerUrl)
+
+internal fun PostRevision.toSummary() = PostRevisionSummaryResponse(id = requireNotNull(id), title = title, createdAt = createdAt)
+
+internal fun PostRevision.toResponse() =
+    PostRevisionResponse(
+        id = requireNotNull(id),
         title = title,
-        slug = slug,
-        type = type,
         summary = summary,
         body = body,
         bannerUrl = bannerUrl,
-        tags = tags.sorted(),
-        publishedAt = publishedAt,
+        createdAt = createdAt,
+    )
+
+internal fun PostService.PublishedDetail.toPublic() =
+    PublicPostResponse(
+        title = post.title,
+        slug = post.slug,
+        type = post.type,
+        summary = post.summary,
+        body = post.body,
+        bannerUrl = post.bannerUrl,
+        tags = post.tags.sorted(),
+        publishedAt = post.publishedAt,
+        previous = previous?.toLink(),
+        next = next?.toLink(),
+        related = related.map { it.toRelated() },
     )

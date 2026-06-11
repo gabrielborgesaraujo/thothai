@@ -19,6 +19,7 @@ import java.util.UUID
 internal class LinkedInService(
     private val repository: LinkedInConnectionRepository,
     private val api: LinkedInApi,
+    private val events: org.springframework.context.ApplicationEventPublisher,
     @param:Value("\${thothai.public-origin}") private val publicOrigin: String,
 ) {
     @Transactional(readOnly = true)
@@ -96,6 +97,8 @@ internal class LinkedInService(
             throw InvalidRequestException("A conexão com o LinkedIn expirou — reconecte em Integrações")
         }
         val postId = api.share(token, member, text, request.url?.trim()?.ifBlank { null })
+        // Marca a postagem de origem como compartilhada (módulo de conteúdo, via evento).
+        request.postId?.let { events.publishEvent(LinkedInShareCompleted(it, postId)) }
         return LinkedInShareResponse(postId)
     }
 

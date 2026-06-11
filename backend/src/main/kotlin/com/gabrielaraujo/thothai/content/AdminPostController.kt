@@ -60,4 +60,16 @@ internal class AdminPostController(
     fun delete(
         @PathVariable id: UUID,
     ) = postService.delete(id)
+
+    /** Histórico de versões (snapshots anteriores a cada atualização). */
+    @GetMapping("/{id}/revisions")
+    fun revisions(
+        @PathVariable id: UUID,
+    ): List<PostRevisionSummaryResponse> = postService.listRevisions(id).map { it.toSummary() }
+
+    @GetMapping("/{id}/revisions/{revisionId}")
+    fun revision(
+        @PathVariable id: UUID,
+        @PathVariable revisionId: UUID,
+    ): PostRevisionResponse = postService.getRevision(id, revisionId).toResponse()
 }

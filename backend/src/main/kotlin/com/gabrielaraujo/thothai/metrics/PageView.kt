@@ -7,9 +7,9 @@ import jakarta.persistence.Table
 import java.time.LocalDate
 
 /**
- * Contagem agregada de acessos: uma linha por dia + caminho do portal. O incremento é feito por
- * upsert atômico no repositório (não por load-modify-save), então a entidade é essencialmente
- * de leitura para o dashboard.
+ * Contagem agregada por dia + caminho + métrica ('view' = acesso; 'read' = leitura até o fim).
+ * O incremento é feito por upsert atômico no repositório (não por load-modify-save), então a
+ * entidade é essencialmente de leitura para o dashboard.
  */
 @Entity
 @Table(name = "page_views")
@@ -18,6 +18,8 @@ class PageView(
     var viewDate: LocalDate,
     @Column(name = "path", nullable = false, length = 160)
     var path: String,
+    @Column(name = "metric", nullable = false, length = 16)
+    var metric: String = "view",
     @Column(name = "views", nullable = false)
     var views: Long = 0,
 ) : AbstractTenantEntity()

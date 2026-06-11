@@ -42,6 +42,11 @@ class Post(
     /** Horário-alvo de publicação quando [status] é [PostStatus.SCHEDULED]. */
     @Column(name = "scheduled_at")
     var scheduledAt: Instant? = null,
+    /** Registro do compartilhamento no LinkedIn (badge no painel). */
+    @Column(name = "linkedin_shared_at")
+    var linkedinSharedAt: Instant? = null,
+    @Column(name = "linkedin_post_id", length = 128)
+    var linkedinPostId: String? = null,
     /**
      * Tags livres para filtro/descoberta. EAGER porque os DTOs são montados fora da transação
      * (open-in-view desligado); o BatchSize carrega as coleções da página em lote, evitando N+1.

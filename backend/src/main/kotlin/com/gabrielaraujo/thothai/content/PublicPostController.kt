@@ -33,5 +33,5 @@ internal class PublicPostController(
     @GetMapping("/{slug}")
     fun get(
         @PathVariable slug: String,
-    ): PublicPostResponse = postService.getPublishedBySlug(slug).toPublic()
+    ): PublicPostResponse = postService.publishedDetail(slug).toPublic()
 }

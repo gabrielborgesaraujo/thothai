@@ -183,6 +183,62 @@ class PostManagementTests {
     }
 
     @Test
+    fun `busca publica full-text encontra termo no corpo`() {
+        postService.create(
+            request(title = "Guia de concorrência", status = PostStatus.PUBLISHED, body = "Falando de corrotinas estruturadas."),
+        )
+        postService.create(request(title = "Outro assunto", status = PostStatus.PUBLISHED, body = "Nada a ver."))
+
+        val found = postService.listPublished(PageRequest.of(0, 10), query = "corrotinas")
+        assertEquals(1, found.totalElements)
+        assertEquals("guia-de-concorrencia", found.content.first().slug)
+    }
+
+    @Test
+    fun `detalhe publico traz anterior, proximo e relacionadas por tags`() {
+        val first = postService.create(request(title = "Primeiro", status = PostStatus.PUBLISHED, tags = listOf("kotlin")))
+        Thread.sleep(5)
+        postService.create(request(title = "Segundo", status = PostStatus.PUBLISHED, tags = listOf("kotlin", "jvm")))
+        Thread.sleep(5)
+        postService.create(request(title = "Terceiro", status = PostStatus.PUBLISHED, tags = listOf("angular")))
+
+        val detail = postService.publishedDetail("segundo")
+        assertEquals("primeiro", detail.previous?.slug)
+        assertEquals("terceiro", detail.next?.slug)
+        // Relacionada por tag em comum (kotlin); o de angular fica de fora.
+        assertEquals(listOf("primeiro"), detail.related.map { it.slug })
+
+        val firstDetail = postService.publishedDetail(first.slug)
+        assertNull(firstDetail.previous)
+        assertEquals("segundo", firstDetail.next?.slug)
+    }
+
+    @Test
+    fun `atualizacao guarda versao anterior e a restauracao e consultavel`() {
+        val post = postService.create(request(title = "Versão 1", body = "corpo v1"))
+        postService.update(requireNotNull(post.id), request(title = "Versão 2", body = "corpo v2"))
+        postService.update(requireNotNull(post.id), request(title = "Versão 3", body = "corpo v3"))
+
+        val revisions = postService.listRevisions(requireNotNull(post.id))
+        assertEquals(2, revisions.size)
+        assertEquals("Versão 2", revisions[0].title)
+        assertEquals("Versão 1", revisions[1].title)
+
+        val oldest = postService.getRevision(requireNotNull(post.id), requireNotNull(revisions[1].id))
+        assertEquals("corpo v1", oldest.body)
+    }
+
+    @Test
+    fun `marca compartilhamento no linkedin`() {
+        val post = postService.create(request(title = "Compartilhado", status = PostStatus.PUBLISHED))
+        postService.markLinkedInShared(requireNotNull(post.id), "urn:li:share:42")
+
+        val reloaded = postService.get(requireNotNull(post.id))
+        assertNotNull(reloaded.linkedinSharedAt)
+        assertEquals("urn:li:share:42", reloaded.linkedinPostId)
+    }
+
+    @Test
     fun `voltar para rascunho limpa o agendamento`() {
         val post =
             postService.create(

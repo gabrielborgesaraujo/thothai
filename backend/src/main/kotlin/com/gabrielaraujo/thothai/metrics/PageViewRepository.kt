@@ -25,9 +25,9 @@ internal interface PageViewRepository : JpaRepository<PageView, UUID> {
     @Query(
         nativeQuery = true,
         value = """
-            INSERT INTO page_views (id, tenant_id, view_date, path, views, created_at, updated_at)
-            VALUES (gen_random_uuid(), :tenantId, :date, :path, 1, now(), now())
-            ON CONFLICT (tenant_id, view_date, path)
+            INSERT INTO page_views (id, tenant_id, view_date, path, metric, views, created_at, updated_at)
+            VALUES (gen_random_uuid(), :tenantId, :date, :path, :metric, 1, now(), now())
+            ON CONFLICT (tenant_id, view_date, path, metric)
             DO UPDATE SET views = page_views.views + 1, updated_at = now()
         """,
     )
@@ -35,23 +35,33 @@ internal interface PageViewRepository : JpaRepository<PageView, UUID> {
         tenantId: String,
         date: LocalDate,
         path: String,
+        metric: String,
     )
 
-    @Query("SELECT COALESCE(SUM(p.views), 0) FROM PageView p WHERE p.tenantId = :tenantId")
-    fun totalViews(tenantId: String): Long
+    @Query(
+        "SELECT COALESCE(SUM(p.views), 0) FROM PageView p WHERE p.tenantId = :tenantId AND p.metric = :metric",
+    )
+    fun totalViews(
+        tenantId: String,
+        metric: String,
+    ): Long
 
     @Query(
-        "SELECT COALESCE(SUM(p.views), 0) FROM PageView p WHERE p.tenantId = :tenantId AND p.viewDate >= :since",
+        """
+        SELECT COALESCE(SUM(p.views), 0) FROM PageView p
+        WHERE p.tenantId = :tenantId AND p.metric = :metric AND p.viewDate >= :since
+        """,
     )
     fun viewsSince(
         tenantId: String,
+        metric: String,
         since: LocalDate,
     ): Long
 
     @Query(
         """
         SELECT p.viewDate AS date, SUM(p.views) AS views FROM PageView p
-        WHERE p.tenantId = :tenantId AND p.viewDate >= :since
+        WHERE p.tenantId = :tenantId AND p.metric = 'view' AND p.viewDate >= :since
         GROUP BY p.viewDate ORDER BY p.viewDate
         """,
     )
@@ -63,12 +73,14 @@ internal interface PageViewRepository : JpaRepository<PageView, UUID> {
     @Query(
         """
         SELECT p.path AS path, SUM(p.views) AS views FROM PageView p
-        WHERE p.tenantId = :tenantId AND p.viewDate >= :since AND p.path LIKE '/posts/%'
+        WHERE p.tenantId = :tenantId AND p.metric = :metric
+          AND p.viewDate >= :since AND p.path LIKE '/posts/%'
         GROUP BY p.path ORDER BY SUM(p.views) DESC
         """,
     )
     fun topPosts(
         tenantId: String,
+        metric: String,
         since: LocalDate,
         pageable: Pageable,
     ): List<PathViews>

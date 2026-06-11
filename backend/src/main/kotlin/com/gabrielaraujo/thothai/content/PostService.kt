@@ -4,6 +4,7 @@ import com.gabrielaraujo.thothai.shared.InvalidRequestException
 import com.gabrielaraujo.thothai.shared.ResourceNotFoundException
 import com.gabrielaraujo.thothai.shared.TenantContext
 import org.springframework.data.domain.Page
+import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -18,7 +19,16 @@ import java.util.UUID
 @Transactional
 internal class PostService(
     private val posts: PostRepository,
+    private val revisions: PostRevisionRepository,
 ) {
+    /** Detalhe público enriquecido com navegação e publicações relacionadas. */
+    internal data class PublishedDetail(
+        val post: Post,
+        val previous: Post?,
+        val next: Post?,
+        val related: List<Post>,
+    )
+
     @Transactional(readOnly = true)
     fun list(
         pageable: Pageable,
@@ -69,6 +79,17 @@ internal class PostService(
         request: PostRequest,
     ): Post {
         val post = get(id)
+        // Snapshot do estado anterior (histórico de versões), limitado às mais recentes.
+        revisions.save(
+            PostRevision(
+                postId = id,
+                title = post.title,
+                summary = post.summary,
+                body = post.body,
+                bannerUrl = post.bannerUrl,
+            ),
+        )
+        revisions.pruneOld(id, MAX_REVISIONS)
         post.title = request.title
         post.type = request.type
         post.summary = request.summary
@@ -97,7 +118,6 @@ internal class PostService(
     ): Page<Post> =
         posts.searchPublished(
             TenantContext.currentTenant(),
-            PostStatus.PUBLISHED,
             normalizeQuery(query),
             tag?.trim()?.lowercase().orEmpty(),
             pageable,
@@ -110,6 +130,64 @@ internal class PostService(
     fun getPublishedBySlug(slug: String): Post =
         posts.findByTenantIdAndStatusAndSlug(TenantContext.currentTenant(), PostStatus.PUBLISHED, slug)
             ?: throw ResourceNotFoundException("Postagem não encontrada")
+
+    /** Detalhe público com anterior/próximo (cronologia) e relacionadas (tags em comum). */
+    @Transactional(readOnly = true)
+    fun publishedDetail(slug: String): PublishedDetail {
+        val tenant = TenantContext.currentTenant()
+        val post = getPublishedBySlug(slug)
+        val publishedAt = post.publishedAt
+        val previous =
+            publishedAt?.let {
+                posts.findFirstByTenantIdAndStatusAndPublishedAtLessThanOrderByPublishedAtDesc(
+                    tenant,
+                    PostStatus.PUBLISHED,
+                    it,
+                )
+            }
+        val next =
+            publishedAt?.let {
+                posts.findFirstByTenantIdAndStatusAndPublishedAtGreaterThanOrderByPublishedAtAsc(
+                    tenant,
+                    PostStatus.PUBLISHED,
+                    it,
+                )
+            }
+        val related =
+            if (post.tags.isEmpty()) {
+                emptyList()
+            } else {
+                posts.findRelated(tenant, PostStatus.PUBLISHED, slug, post.tags, PageRequest.of(0, RELATED_POSTS))
+            }
+        return PublishedDetail(post, previous, next, related)
+    }
+
+    /** Histórico de versões da postagem (mais recente primeiro). */
+    @Transactional(readOnly = true)
+    fun listRevisions(postId: UUID): List<PostRevision> {
+        get(postId)
+        return revisions.findByTenantIdAndPostIdOrderByCreatedAtDesc(TenantContext.currentTenant(), postId)
+    }
+
+    @Transactional(readOnly = true)
+    fun getRevision(
+        postId: UUID,
+        revisionId: UUID,
+    ): PostRevision =
+        revisions
+            .findByTenantIdAndId(TenantContext.currentTenant(), revisionId)
+            ?.takeIf { it.postId == postId }
+            ?: throw ResourceNotFoundException("Versão não encontrada")
+
+    /** Registra que a postagem foi compartilhada no LinkedIn (badge no painel). */
+    fun markLinkedInShared(
+        postId: UUID,
+        linkedInPostId: String,
+    ) {
+        val post = posts.findByTenantIdAndId(TenantContext.currentTenant(), postId) ?: return
+        post.linkedinSharedAt = Instant.now()
+        post.linkedinPostId = linkedInPostId
+    }
 
     /** Promove a PUBLISHED os posts agendados vencidos (todos os tenants); retorna quantos publicou. */
     fun publishDueScheduled(now: Instant = Instant.now()): Int {
@@ -181,8 +259,10 @@ internal class PostService(
         return "$base-$suffix"
     }
 
-    private companion object {
+    internal companion object {
         val WHITESPACE = Regex("\\s+")
         const val MAX_TAG_LENGTH = 64
+        const val MAX_REVISIONS = 20
+        const val RELATED_POSTS = 3
     }
 }

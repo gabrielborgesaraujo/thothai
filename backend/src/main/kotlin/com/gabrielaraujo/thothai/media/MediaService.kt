@@ -1,5 +1,7 @@
 package com.gabrielaraujo.thothai.media
 
+import com.gabrielaraujo.thothai.content.ContentQueries
+import com.gabrielaraujo.thothai.shared.BusinessRuleException
 import com.gabrielaraujo.thothai.shared.InvalidRequestException
 import com.gabrielaraujo.thothai.shared.ResourceNotFoundException
 import com.gabrielaraujo.thothai.shared.TenantContext
@@ -18,6 +20,7 @@ internal class MediaService(
     private val storage: ObjectStorage,
     private val mediaAssets: MediaAssetRepository,
     private val properties: StorageProperties,
+    private val contentQueries: ContentQueries,
 ) {
     fun upload(file: MultipartFile): MediaAsset {
         if (file.isEmpty) {
@@ -122,6 +125,13 @@ internal class MediaService(
 
     fun delete(id: UUID) {
         val asset = find(id)
+        // Protege conteúdo publicado: mídia referenciada por posts não pode ser excluída.
+        val usage = contentQueries.mediaUsageCount(asset.publicUrl)
+        if (usage > 0) {
+            throw BusinessRuleException(
+                "Mídia em uso em $usage postagem(ns) — remova-a dos conteúdos antes de excluir",
+            )
+        }
         storage.delete(asset.objectKey)
         mediaAssets.delete(asset)
     }

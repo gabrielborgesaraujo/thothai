@@ -22,6 +22,8 @@ data class LinkedInShareRequest(
     /** URL do artigo no portal (vira o cartão do post); opcional. */
     @field:Size(max = 1024)
     val url: String? = null,
+    /** Postagem de origem — quando presente, ela é marcada como compartilhada (badge). */
+    val postId: java.util.UUID? = null,
 )
 
 data class LinkedInShareResponse(
