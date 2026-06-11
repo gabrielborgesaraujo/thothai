@@ -176,7 +176,7 @@ export class LinkedInShareDialog {
     }
     this.publishing.set(true);
     this.error.set(null);
-    this.social.shareOnLinkedIn(this.text().trim(), this.articleUrl()).subscribe({
+    this.social.shareOnLinkedIn(this.text().trim(), this.articleUrl(), this.post().id).subscribe({
       next: (res) => {
         this.publishedId.set(res.postId);
         this.publishing.set(false);

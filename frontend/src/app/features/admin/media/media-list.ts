@@ -297,8 +297,9 @@ export class MediaList {
         this.pendingDelete.set(null);
         this.reload();
       },
-      error: () => {
-        this.error.set('Falha ao excluir a mídia.');
+      error: (err: { error?: { detail?: string } }) => {
+        // O backend explica, p.ex., quando a mídia está em uso em postagens (409).
+        this.error.set(err?.error?.detail ?? 'Falha ao excluir a mídia.');
         this.pendingDelete.set(null);
       },
     });

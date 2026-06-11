@@ -16,6 +16,11 @@ export interface SnippetResponse {
   text: string;
 }
 
+/** Texto corrigido pela IA (revisão aplicável). */
+export interface CorrectionResponse {
+  text: string;
+}
+
 /** Origem efetiva de uma chave de IA. */
 export type AiKeySource = 'CUSTOM' | 'ENVIRONMENT';
 

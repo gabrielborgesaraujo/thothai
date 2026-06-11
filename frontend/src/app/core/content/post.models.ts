@@ -40,6 +40,7 @@ export interface PostSummary {
   tags: string[];
   publishedAt: string | null;
   scheduledAt: string | null;
+  linkedinSharedAt: string | null;
 }
 
 /** Postagem completa para o painel admin. */
@@ -73,7 +74,38 @@ export interface PostRequest {
   scheduledAt: string | null;
 }
 
-/** Postagem publicada para leitura pública (RF06). */
+/** Link de navegação entre publicações (anterior/próxima). */
+export interface PostLink {
+  slug: string;
+  title: string;
+}
+
+/** Publicação relacionada (tags em comum) exibida no fim da leitura. */
+export interface RelatedPost {
+  slug: string;
+  title: string;
+  type: PostType;
+  bannerUrl: string | null;
+}
+
+/** Versão do histórico (item da listagem). */
+export interface PostRevisionSummary {
+  id: string;
+  title: string;
+  createdAt: string | null;
+}
+
+/** Versão completa para restauração no editor. */
+export interface PostRevision {
+  id: string;
+  title: string;
+  summary: string | null;
+  body: string;
+  bannerUrl: string | null;
+  createdAt: string | null;
+}
+
+/** Postagem publicada para leitura pública (RF06), com navegação e relacionadas. */
 export interface PublicPost {
   title: string;
   slug: string;
@@ -83,4 +115,7 @@ export interface PublicPost {
   bannerUrl: string | null;
   tags: string[];
   publishedAt: string | null;
+  previous: PostLink | null;
+  next: PostLink | null;
+  related: RelatedPost[];
 }

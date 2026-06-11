@@ -33,8 +33,16 @@ export class SocialService {
     return this.api.get<{ url: string }>('/admin/social/linkedin/authorize-url');
   }
 
-  shareOnLinkedIn(text: string, url: string | null): Observable<LinkedInShareResponse> {
-    return this.api.post<LinkedInShareResponse>('/admin/social/linkedin/share', { text, url });
+  shareOnLinkedIn(
+    text: string,
+    url: string | null,
+    postId: string | null,
+  ): Observable<LinkedInShareResponse> {
+    return this.api.post<LinkedInShareResponse>('/admin/social/linkedin/share', {
+      text,
+      url,
+      postId,
+    });
   }
 
   disconnectLinkedIn(): Observable<LinkedInStatus> {

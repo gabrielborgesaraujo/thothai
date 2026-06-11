@@ -137,6 +137,14 @@ const STATUS_BADGES: Record<PostStatus, { label: string; classes: string }> = {
                       class="font-medium hover:text-indigo-600 dark:hover:text-indigo-400"
                       >{{ p.title }}</a
                     >
+                    @if (p.linkedinSharedAt) {
+                      <mat-icon
+                        class="ml-1 align-middle text-[16px]! text-sky-600 dark:text-sky-400"
+                        [title]="'Publicado no LinkedIn em ' + (p.linkedinSharedAt | date: 'short')"
+                        aria-label="Publicado no LinkedIn"
+                        >campaign</mat-icon
+                      >
+                    }
                     @if (p.tags.length) {
                       <div class="mt-0.5 flex flex-wrap gap-1.5">
                         @for (tag of p.tags; track tag) {
@@ -214,7 +222,7 @@ const STATUS_BADGES: Record<PostStatus, { label: string; classes: string }> = {
     }
 
     @if (sharing(); as post) {
-      <app-linkedin-share-dialog [post]="post" (closed)="sharing.set(null)" />
+      <app-linkedin-share-dialog [post]="post" (closed)="onShareDialogClosed()" />
     }
   `,
 })
@@ -267,6 +275,12 @@ export class PostList {
     const value = (event.target as HTMLSelectElement).value;
     this.type.set((value || null) as PostType | null);
     this.resetAndReload();
+  }
+
+  /** Recarrega ao fechar o diálogo (o badge do LinkedIn pode ter mudado). */
+  protected onShareDialogClosed(): void {
+    this.sharing.set(null);
+    this.reload();
   }
 
   protected onPage(event: PageEvent): void {

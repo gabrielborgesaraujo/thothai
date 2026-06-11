@@ -4,6 +4,7 @@ import { ApiService } from '../api.service';
 import {
   AiSettings,
   AiSettingsRequest,
+  CorrectionResponse,
   DraftResponse,
   ReviewResponse,
   SnippetResponse,
@@ -20,6 +21,11 @@ export class AssistantService {
 
   review(content: string): Observable<ReviewResponse> {
     return this.api.post<ReviewResponse>('/admin/assistant/review', { content });
+  }
+
+  /** Devolve o texto corrigido pela IA, preservando o Markdown (antes/depois no editor). */
+  applyReview(content: string): Observable<CorrectionResponse> {
+    return this.api.post<CorrectionResponse>('/admin/assistant/apply-review', { content });
   }
 
   generateSnippet(title: string, content: string): Observable<SnippetResponse> {

@@ -63,16 +63,22 @@ import { MetricsService, MetricsSummary } from '../../../core/metrics/metrics.se
     <!-- Métricas de acesso/leitura do portal -->
     @if (metrics(); as m) {
       <h2 class="mt-8 mb-4 text-lg font-semibold tracking-tight">Acessos do portal</h2>
-      <div class="grid gap-4 sm:grid-cols-3">
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div class="rounded-xl border border-gray-200 p-5 dark:border-gray-800">
-          <p class="text-sm text-gray-500 dark:text-gray-400">Últimos 7 dias</p>
+          <p class="text-sm text-gray-500 dark:text-gray-400">Acessos (7 dias)</p>
           <p class="mt-1 text-3xl font-semibold text-indigo-600 dark:text-indigo-400">
             {{ m.viewsLast7Days | number }}
           </p>
         </div>
         <div class="rounded-xl border border-gray-200 p-5 dark:border-gray-800">
-          <p class="text-sm text-gray-500 dark:text-gray-400">Últimos 30 dias</p>
+          <p class="text-sm text-gray-500 dark:text-gray-400">Acessos (30 dias)</p>
           <p class="mt-1 text-3xl font-semibold">{{ m.viewsLast30Days | number }}</p>
+        </div>
+        <div class="rounded-xl border border-gray-200 p-5 dark:border-gray-800">
+          <p class="text-sm text-gray-500 dark:text-gray-400">Leituras completas (30 dias)</p>
+          <p class="mt-1 text-3xl font-semibold text-green-700 dark:text-green-400">
+            {{ m.readsLast30Days | number }}
+          </p>
         </div>
         <div class="rounded-xl border border-gray-200 p-5 dark:border-gray-800">
           <p class="text-sm text-gray-500 dark:text-gray-400">Desde o início</p>
@@ -80,7 +86,7 @@ import { MetricsService, MetricsSummary } from '../../../core/metrics/metrics.se
         </div>
       </div>
 
-      <div class="mt-4 grid gap-4 lg:grid-cols-2">
+      <div class="mt-4 grid gap-4 lg:grid-cols-3">
         <!-- Série diária (14 dias) em barras -->
         <div class="rounded-xl border border-gray-200 p-5 dark:border-gray-800">
           <p class="mb-3 text-sm font-medium text-gray-500 dark:text-gray-400">
@@ -126,8 +132,32 @@ import { MetricsService, MetricsSummary } from '../../../core/metrics/metrics.se
                     >{{ post.slug }}</a
                   >
                   <span class="shrink-0 text-gray-500 dark:text-gray-400"
-                    >{{ post.views | number }} leitura(s)</span
+                    >{{ post.views | number }} acesso(s) · {{ post.reads | number }} leitura(s)</span
                   >
+                </li>
+              }
+            </ol>
+          }
+        </div>
+
+        <!-- Origem do tráfego (30 dias) -->
+        <div class="rounded-xl border border-gray-200 p-5 dark:border-gray-800">
+          <p class="mb-3 text-sm font-medium text-gray-500 dark:text-gray-400">
+            Origem do tráfego (30 dias)
+          </p>
+          @if (m.topReferrers.length === 0) {
+            <p class="py-6 text-center text-sm text-gray-400 dark:text-gray-500">
+              Nenhuma origem externa ainda.
+            </p>
+          } @else {
+            <ol class="flex flex-col gap-2">
+              @for (ref of m.topReferrers; track ref.host) {
+                <li class="flex items-center gap-3 text-sm">
+                  <mat-icon class="text-[16px]! text-gray-300 dark:text-gray-600">language</mat-icon>
+                  <span class="min-w-0 flex-1 truncate">{{ ref.host }}</span>
+                  <span class="shrink-0 text-gray-500 dark:text-gray-400">{{
+                    ref.views | number
+                  }}</span>
                 </li>
               }
             </ol>

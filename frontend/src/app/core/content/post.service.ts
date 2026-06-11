@@ -6,6 +6,8 @@ import {
   Post,
   PostFilters,
   PostRequest,
+  PostRevision,
+  PostRevisionSummary,
   PostStats,
   PostSummary,
   PublicPost,
@@ -48,6 +50,15 @@ export class PostService {
 
   remove(id: string): Observable<void> {
     return this.api.delete<void>(`/admin/posts/${id}`);
+  }
+
+  /** Histórico de versões (snapshots anteriores a cada atualização). */
+  listRevisions(id: string): Observable<PostRevisionSummary[]> {
+    return this.api.get<PostRevisionSummary[]>(`/admin/posts/${id}/revisions`);
+  }
+
+  getRevision(id: string, revisionId: string): Observable<PostRevision> {
+    return this.api.get<PostRevision>(`/admin/posts/${id}/revisions/${revisionId}`);
   }
 
   // --- Portal público (RF06) ---

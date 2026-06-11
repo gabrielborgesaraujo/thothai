@@ -1,5 +1,14 @@
-import { ChangeDetectionStrategy, Component, inject, signal, viewChild } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  effect,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
+import { DatePipe } from '@angular/common';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { debounceTime } from 'rxjs';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -9,7 +18,13 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { PostService } from '../../../../core/content/post.service';
-import { PostRequest, PostStatus, PostType } from '../../../../core/content/post.models';
+import {
+  PostRequest,
+  PostRevisionSummary,
+  PostStatus,
+  PostType,
+} from '../../../../core/content/post.models';
+import { MarkdownPipe } from '../../../../core/content/markdown.pipe';
 import { AssistantService } from '../../../../core/assistant/assistant.service';
 import { MediaSummary } from '../../../../core/media/media.models';
 import { MediaPicker } from '../../media/media-picker';
@@ -24,6 +39,8 @@ type PickerTarget = 'banner' | 'body';
 @Component({
   selector: 'app-post-form',
   imports: [
+    DatePipe,
+    MarkdownPipe,
     ReactiveFormsModule,
     RouterLink,
     MatFormFieldModule,
@@ -47,6 +64,21 @@ type PickerTarget = 'banner' | 'body';
       }
       @if (error()) {
         <p class="my-2 text-sm text-red-600 dark:text-red-400" role="alert">{{ error() }}</p>
+      }
+
+      <!-- Rascunho não salvo recuperado do navegador (autosave). -->
+      @if (backupAt(); as savedAt) {
+        <div
+          class="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"
+          role="status"
+        >
+          <mat-icon class="text-[18px]!">history</mat-icon>
+          Há alterações não salvas de {{ savedAt | date: 'short' }} guardadas neste navegador.
+          <span class="ml-auto flex gap-1">
+            <button matButton type="button" (click)="restoreBackup()">Restaurar</button>
+            <button matButton type="button" (click)="discardBackup()">Descartar</button>
+          </span>
+        </div>
       }
 
       <div
@@ -194,6 +226,16 @@ type PickerTarget = 'banner' | 'body';
         </mat-form-field>
 
         <div class="flex flex-wrap items-center gap-3">
+          <button matButton type="button" (click)="previewOpen.set(true)" aria-label="Visualizar como ficará no portal">
+            <mat-icon>visibility</mat-icon>
+            Visualizar
+          </button>
+          @if (editingId()) {
+            <button matButton type="button" (click)="openVersions()" aria-label="Histórico de versões">
+              <mat-icon>history</mat-icon>
+              Versões
+            </button>
+          }
           <button
             matButton
             type="button"
@@ -203,6 +245,16 @@ type PickerTarget = 'banner' | 'body';
           >
             <mat-icon>spellcheck</mat-icon>
             Revisar com IA
+          </button>
+          <button
+            matButton
+            type="button"
+            (click)="correct()"
+            [disabled]="correcting()"
+            aria-label="Corrigir conteúdo com IA"
+          >
+            <mat-icon>auto_fix_high</mat-icon>
+            Corrigir com IA
           </button>
           <button
             matButton
@@ -274,6 +326,123 @@ type PickerTarget = 'banner' | 'body';
       @if (pickerTarget()) {
         <app-media-picker (closed)="pickerTarget.set(null)" (selected)="onMediaPicked($event)" />
       }
+
+      <!-- Preview: como a postagem ficará no portal. -->
+      @if (previewOpen()) {
+        <div
+          class="fixed inset-0 z-50 overflow-auto bg-black/60 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Pré-visualização da postagem"
+          (click)="onOverlayBackdrop($event, 'preview')"
+        >
+          <div class="mx-auto my-6 max-w-3xl rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-950">
+            <div class="mb-4 flex items-center justify-between">
+              <p class="text-xs font-semibold tracking-wide text-gray-400 uppercase">Pré-visualização</p>
+              <button matIconButton type="button" (click)="previewOpen.set(false)" aria-label="Fechar pré-visualização">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+            @if (bannerUrl(); as banner) {
+              <img [src]="banner" alt="Banner" class="mb-6 aspect-[5/2] w-full rounded-2xl object-cover" />
+            }
+            <h1 class="text-3xl font-bold tracking-tight">{{ form.controls.title.value || 'Sem título' }}</h1>
+            @if (form.controls.summary.value) {
+              <p class="mt-3 text-lg text-gray-600 dark:text-gray-400">{{ form.controls.summary.value }}</p>
+            }
+            <div class="markdown-body mt-6" [innerHTML]="bodyValue() | markdown"></div>
+          </div>
+        </div>
+      }
+
+      <!-- Correção por IA: antes/depois com aplicação em um clique. -->
+      @if (correction(); as corrected) {
+        <div
+          class="fixed inset-0 z-50 overflow-auto bg-black/60 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Correção por IA"
+        >
+          <div class="mx-auto my-6 max-w-6xl rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-950">
+            <div class="mb-4 flex items-center justify-between">
+              <p class="inline-flex items-center gap-2 font-medium">
+                <mat-icon class="text-indigo-500">auto_fix_high</mat-icon>
+                Correção sugerida pela IA
+              </p>
+              <button matIconButton type="button" (click)="correction.set(null)" aria-label="Fechar correção">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+            <div class="grid gap-4 lg:grid-cols-2">
+              <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
+                <p class="mb-2 text-xs font-semibold tracking-wide text-gray-400 uppercase">Atual</p>
+                <div class="markdown-body max-h-[55vh] overflow-auto text-sm" [innerHTML]="bodyValue() | markdown"></div>
+              </div>
+              <div class="rounded-xl border border-green-200 p-4 dark:border-green-900">
+                <p class="mb-2 text-xs font-semibold tracking-wide text-green-600 uppercase dark:text-green-400">
+                  Corrigido
+                </p>
+                <div class="markdown-body max-h-[55vh] overflow-auto text-sm" [innerHTML]="corrected | markdown"></div>
+              </div>
+            </div>
+            <div class="mt-4 flex justify-end gap-2">
+              <button matButton type="button" (click)="correction.set(null)">Descartar</button>
+              <button matButton="filled" type="button" (click)="applyCorrection()">Usar texto corrigido</button>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Histórico de versões. -->
+      @if (versionsOpen()) {
+        <div
+          class="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Histórico de versões"
+          (click)="onOverlayBackdrop($event, 'versions')"
+        >
+          <div class="flex max-h-[80vh] w-full max-w-lg flex-col gap-3 overflow-auto rounded-2xl bg-white p-4 shadow-xl dark:bg-gray-900">
+            <div class="flex items-center justify-between">
+              <h2 class="inline-flex items-center gap-2 font-semibold">
+                <mat-icon class="text-indigo-500">history</mat-icon>
+                Versões anteriores
+              </h2>
+              <button matIconButton type="button" (click)="versionsOpen.set(false)" aria-label="Fechar versões">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+            @if (revisions(); as list) {
+              @if (list.length === 0) {
+                <p class="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                  Nenhuma versão anterior — elas são criadas a cada salvamento.
+                </p>
+              } @else {
+                <ul class="flex flex-col gap-1">
+                  @for (rev of list; track rev.id) {
+                    <li
+                      class="flex items-center justify-between gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-800"
+                    >
+                      <span class="min-w-0">
+                        <span class="block truncate font-medium">{{ rev.title }}</span>
+                        <span class="text-xs text-gray-400 dark:text-gray-500">{{
+                          rev.createdAt | date: 'short'
+                        }}</span>
+                      </span>
+                      <button matButton type="button" (click)="restoreRevision(rev.id)">Restaurar</button>
+                    </li>
+                  }
+                </ul>
+                <p class="text-xs text-gray-400 dark:text-gray-500">
+                  Restaurar preenche o formulário com a versão escolhida — nada é salvo até você clicar em Salvar.
+                </p>
+              }
+            } @else {
+              <mat-progress-bar mode="indeterminate" />
+            }
+          </div>
+        </div>
+      }
     </div>
   `,
 })
@@ -301,6 +470,17 @@ export class PostForm {
   protected readonly snippet = signal<string | null>(null);
   protected readonly generatingSnippet = signal(false);
   protected readonly snippetError = signal<string | null>(null);
+  /** Quando há um rascunho não salvo recuperável do navegador, guarda o horário dele. */
+  protected readonly backupAt = signal<string | null>(null);
+  protected readonly previewOpen = signal(false);
+  protected readonly versionsOpen = signal(false);
+  protected readonly revisions = signal<PostRevisionSummary[] | null>(null);
+  protected readonly correcting = signal(false);
+  protected readonly correction = signal<string | null>(null);
+
+  private backupKey = 'thothai-draft:new';
+  /** Snapshot do estado carregado: autosave só guarda o que DIFERE dele (evita falsos positivos). */
+  private baselineJson = '';
 
   protected readonly form = this.fb.group({
     title: ['', Validators.required],
@@ -324,9 +504,164 @@ export class PostForm {
 
   constructor() {
     const id = this.route.snapshot.paramMap.get('id');
+    this.backupKey = `thothai-draft:${id ?? 'new'}`;
     if (id) {
       this.editingId.set(id);
       this.loadPost(id);
+    } else {
+      this.baselineJson = this.snapshotJson();
+      this.checkBackup();
+    }
+    // Autosave: qualquer mudança (campos, tags ou banner) vai para o localStorage com debounce.
+    this.form.valueChanges
+      .pipe(debounceTime(1200), takeUntilDestroyed())
+      .subscribe(() => this.saveBackup());
+    effect(() => {
+      this.tags();
+      this.bannerUrl();
+      this.saveBackup();
+    });
+  }
+
+  // --- Autosave (proteção contra perda do que está sendo escrito) ---
+
+  private snapshotJson(): string {
+    return JSON.stringify({
+      form: this.form.getRawValue(),
+      tags: this.tags(),
+      bannerUrl: this.bannerUrl(),
+    });
+  }
+
+  private saveBackup(): void {
+    try {
+      const snapshot = this.snapshotJson();
+      if (!this.baselineJson || snapshot === this.baselineJson) {
+        // Sem diferenças do que está salvo no servidor: não há o que proteger.
+        localStorage.removeItem(this.backupKey);
+        return;
+      }
+      localStorage.setItem(
+        this.backupKey,
+        JSON.stringify({ savedAt: new Date().toISOString(), snapshot }),
+      );
+    } catch {
+      // Armazenamento indisponível — o autosave só não protege.
+    }
+  }
+
+  private checkBackup(): void {
+    try {
+      const stored = localStorage.getItem(this.backupKey);
+      if (!stored) {
+        return;
+      }
+      const backup = JSON.parse(stored) as { savedAt: string; snapshot: string };
+      if (backup.snapshot && backup.snapshot !== this.baselineJson) {
+        this.backupAt.set(backup.savedAt);
+      } else {
+        localStorage.removeItem(this.backupKey);
+      }
+    } catch {
+      // Backup ilegível: ignora.
+    }
+  }
+
+  protected restoreBackup(): void {
+    try {
+      const stored = localStorage.getItem(this.backupKey);
+      if (!stored) {
+        return;
+      }
+      const backup = JSON.parse(stored) as { snapshot: string };
+      const state = JSON.parse(backup.snapshot) as {
+        form?: Partial<ReturnType<PostForm['form']['getRawValue']>>;
+        tags?: string[];
+        bannerUrl?: string | null;
+      };
+      this.form.patchValue(state.form ?? {});
+      this.tags.set(state.tags ?? []);
+      this.bannerUrl.set(state.bannerUrl ?? null);
+      this.backupAt.set(null);
+    } catch {
+      this.backupAt.set(null);
+    }
+  }
+
+  protected discardBackup(): void {
+    try {
+      localStorage.removeItem(this.backupKey);
+    } catch {
+      // sem efeito
+    }
+    this.backupAt.set(null);
+  }
+
+  // --- Versões / preview / correção por IA ---
+
+  protected onOverlayBackdrop(event: MouseEvent, overlay: 'preview' | 'versions'): void {
+    if (event.target === event.currentTarget) {
+      (overlay === 'preview' ? this.previewOpen : this.versionsOpen).set(false);
+    }
+  }
+
+  protected openVersions(): void {
+    const id = this.editingId();
+    if (!id) {
+      return;
+    }
+    this.versionsOpen.set(true);
+    this.revisions.set(null);
+    this.postService.listRevisions(id).subscribe({
+      next: (list) => this.revisions.set(list),
+      error: () => this.revisions.set([]),
+    });
+  }
+
+  protected restoreRevision(revisionId: string): void {
+    const id = this.editingId();
+    if (!id) {
+      return;
+    }
+    this.postService.getRevision(id, revisionId).subscribe({
+      next: (rev) => {
+        this.form.patchValue({
+          title: rev.title,
+          summary: rev.summary ?? '',
+          body: rev.body,
+        });
+        this.bannerUrl.set(rev.bannerUrl);
+        this.versionsOpen.set(false);
+      },
+      error: () => this.error.set('Falha ao carregar a versão.'),
+    });
+  }
+
+  /** Pede à IA o texto corrigido e abre o antes/depois. */
+  protected correct(): void {
+    const body = this.form.controls.body.value;
+    if (!body.trim() || this.correcting()) {
+      return;
+    }
+    this.correcting.set(true);
+    this.reviewError.set(null);
+    this.assistant.applyReview(body).subscribe({
+      next: (res) => {
+        this.correction.set(res.text);
+        this.correcting.set(false);
+      },
+      error: () => {
+        this.reviewError.set('Não foi possível corrigir (IA indisponível).');
+        this.correcting.set(false);
+      },
+    });
+  }
+
+  protected applyCorrection(): void {
+    const corrected = this.correction();
+    if (corrected) {
+      this.form.controls.body.setValue(corrected);
+      this.correction.set(null);
     }
   }
 
@@ -371,7 +706,10 @@ export class PostForm {
     const id = this.editingId();
     const save = id ? this.postService.update(id, request) : this.postService.create(request);
     save.subscribe({
-      next: () => this.router.navigate(['/admin/posts']),
+      next: () => {
+        this.discardBackup();
+        this.router.navigate(['/admin/posts']);
+      },
       error: () => {
         this.error.set('Falha ao salvar a postagem.');
         this.loading.set(false);
@@ -504,6 +842,9 @@ export class PostForm {
         this.tags.set(post.tags);
         this.bannerUrl.set(post.bannerUrl);
         this.loading.set(false);
+        // Baseline = estado do servidor; só diferenças disso viram autosave/restauração.
+        this.baselineJson = this.snapshotJson();
+        this.checkBackup();
       },
       error: () => {
         this.error.set('Postagem não encontrada.');
