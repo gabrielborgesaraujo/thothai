@@ -14,9 +14,13 @@
 # Uso (na raiz do repositório ou de qualquer lugar):
 #   ./deploy/vps-deploy.sh            # primeiro deploy ou redeploy
 #   ./deploy/vps-deploy.sh update     # git pull + rebuild + up
+#   ./deploy/vps-deploy.sh backup     # pg_dump comprimido em ./backups (retém os 14 últimos)
 #   ./deploy/vps-deploy.sh status     # docker compose ps
 #   ./deploy/vps-deploy.sh logs       # docker compose logs -f
 #   ./deploy/vps-deploy.sh down       # para o stack (volumes preservados)
+#
+# Dica: agende o backup diário no cron da VPS, por exemplo:
+#   0 3 * * * cd /caminho/do/repo && ./deploy/vps-deploy.sh backup >> backups/backup.log 2>&1
 
 set -euo pipefail
 
@@ -78,8 +82,12 @@ create_env() {
   read -rp "Porta do MinIO (mídias) no host [9000]: " MINIO_PORT
   MINIO_PORT="${MINIO_PORT:-9000}"
 
-  read -rp "ANTHROPIC_API_KEY (IA — Enter para pular): " ANTHROPIC_API_KEY
-  read -rp "TAVILY_API_KEY (busca viva — Enter para pular): " TAVILY_API_KEY
+  echo
+  info "As chaves de IA (Anthropic, OpenAI, Gemini, Qwen ou compatíveis) e do Tavily são"
+  info "configuradas DEPOIS, pelo painel em Integrações. Os campos abaixo são apenas um"
+  info "fallback de servidor (somente Anthropic/Tavily) — pode pular com Enter:"
+  read -rp "ANTHROPIC_API_KEY (fallback opcional): " ANTHROPIC_API_KEY
+  read -rp "TAVILY_API_KEY (fallback opcional): " TAVILY_API_KEY
 
   POSTGRES_PASSWORD="$(gen_secret)"
   MINIO_ROOT_PASSWORD="$(gen_secret)"
@@ -184,10 +192,19 @@ print_npm_instructions() {
     Painel admin ... https://$domain/admin/login
     Feed RSS ....... https://$domain/feed.xml
 
+ Configurações feitas pelo próprio painel (Integrações):
+    - Motor de IA: escolha o provedor (Anthropic, OpenAI, Gemini, Qwen ou
+      OpenAI-compatível) e informe sua chave/modelo.
+    - LinkedIn: crie um app em developers.linkedin.com (produtos "Share on
+      LinkedIn" + "Sign In with LinkedIn using OpenID Connect") e cadastre
+      esta redirect URL no app:
+          https://$domain/api/admin/social/linkedin/callback
+
  Comandos úteis:
     ${COMPOSE[*]} ps
     ${COMPOSE[*]} logs -f backend
     ./deploy/vps-deploy.sh update     # atualizar para a última versão
+    ./deploy/vps-deploy.sh backup     # backup do banco (agende no cron!)
 ────────────────────────────────────────────────────────────────────────
 EOF
 
@@ -215,11 +232,26 @@ case "${1:-deploy}" in
     deploy
     ok "atualização concluída"
     ;;
+  backup)
+    check_prereqs
+    [ -f "$ENV_FILE" ] || { err "sem $ENV_FILE — rode primeiro: ./deploy/vps-deploy.sh"; exit 1; }
+    db="$(env_get POSTGRES_DB)"; user="$(env_get POSTGRES_USER)"
+    mkdir -p backups
+    file="backups/thothai-$(date +%Y%m%d-%H%M%S).sql.gz"
+    info "Gerando dump de '$db'…"
+    "${COMPOSE[@]}" exec -T postgres pg_dump -U "$user" "$db" | gzip > "$file"
+    [ -s "$file" ] || { rm -f "$file"; err "dump vazio — veja os logs do postgres."; exit 1; }
+    ok "backup gravado em $file ($(du -h "$file" | cut -f1))"
+    # Retenção: mantém os 14 dumps mais recentes.
+    ls -1t backups/thothai-*.sql.gz 2>/dev/null | tail -n +15 | xargs -r rm -f --
+    echo "Restauração: gunzip -c $file | ${COMPOSE[*]} exec -T postgres psql -U $user $db"
+    echo "Atenção: as mídias (volume do MinIO) não entram neste dump — faça backup do volume à parte."
+    ;;
   status) check_prereqs; "${COMPOSE[@]}" ps ;;
   logs)   check_prereqs; "${COMPOSE[@]}" logs -f --tail=200 ;;
   down)   check_prereqs; "${COMPOSE[@]}" down; ok "stack parado (volumes preservados)" ;;
   *)
-    err "uso: $0 [deploy|update|status|logs|down]"
+    err "uso: $0 [deploy|update|backup|status|logs|down]"
     exit 1
     ;;
 esac
