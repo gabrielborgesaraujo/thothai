@@ -112,6 +112,17 @@ class AccountServiceTest {
     }
 
     @Test
+    fun `disponibilidade de handle considera formato, reservados e em uso`() {
+        userManagement.createByAdmin(register("carla"))
+
+        assertTrue(userManagement.isHandleAvailable("endereco-livre"))
+        assertTrue(!userManagement.isHandleAvailable("carla")) // já em uso
+        assertTrue(!userManagement.isHandleAvailable("admin")) // reservado
+        assertTrue(!userManagement.isHandleAvailable("Maiúsculo!")) // formato inválido
+        assertTrue(!userManagement.isHandleAvailable("ab")) // curto demais
+    }
+
+    @Test
     fun `handles reservados, duplicados e invalidos sao rejeitados`() {
         assertFailsWith<InvalidRequestException> {
             userManagement.register(register("alguem", handle = "admin"))

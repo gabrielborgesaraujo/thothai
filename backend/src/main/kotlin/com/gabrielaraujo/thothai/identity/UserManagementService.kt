@@ -29,6 +29,13 @@ internal class UserManagementService(
     @Transactional(readOnly = true)
     fun list(): List<UserAccount> = users.findAllByOrderByCreatedAtDesc()
 
+    /** Endereço público válido, não reservado e ainda livre? (checagem ao vivo no cadastro) */
+    @Transactional(readOnly = true)
+    fun isHandleAvailable(handle: String): Boolean {
+        val cleaned = handle.trim().lowercase()
+        return HANDLE.matches(cleaned) && cleaned !in RESERVED_HANDLES && !users.existsByHandle(cleaned)
+    }
+
     fun updateStatus(
         id: UUID,
         status: UserStatus,

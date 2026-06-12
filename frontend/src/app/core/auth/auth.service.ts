@@ -44,6 +44,11 @@ export class AuthService {
     return this.api.put<AccountInfo>('/admin/account', { email });
   }
 
+  /** Disponibilidade do endereço público (checagem ao vivo no cadastro). */
+  checkHandle(handle: string): Observable<{ available: boolean }> {
+    return this.api.get<{ available: boolean }>('/auth/handle-available', { handle });
+  }
+
   /** Pedido do link de redefinição de senha (sempre silencioso no servidor). */
   requestPasswordReset(identifier: string): Observable<void> {
     return this.api.post<void>('/auth/password-reset/request', { identifier });

@@ -9,6 +9,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { ApiService } from '../../../core/api.service';
 import { ToastService } from '../../../core/toast/toast.service';
 import { UserRole } from '../../../core/auth/auth.models';
+import { slugifyHandle } from '../../../shared/handle';
 
 type UserStatus = 'PENDING' | 'ACTIVE' | 'DISABLED';
 
@@ -72,11 +73,11 @@ const STATUS_BADGES: Record<UserStatus, { label: string; classes: string }> = {
     >
       <mat-form-field appearance="outline" class="flex-1">
         <mat-label>Usuário (login)</mat-label>
-        <input matInput formControlName="username" autocomplete="off" />
+        <input matInput formControlName="username" autocomplete="off" (input)="formatField('username', $event)" />
         @if (form.controls.username.hasError('required')) {
           <mat-error>Campo obrigatório.</mat-error>
-        } @else if (form.controls.username.hasError('pattern')) {
-          <mat-error>3–30 caracteres: minúsculas, números e hífen.</mat-error>
+        } @else if (form.controls.username.hasError('minlength')) {
+          <mat-error>Mínimo de 3 caracteres.</mat-error>
         }
       </mat-form-field>
       <mat-form-field appearance="outline" class="flex-1">
@@ -90,11 +91,11 @@ const STATUS_BADGES: Record<UserStatus, { label: string; classes: string }> = {
       </mat-form-field>
       <mat-form-field appearance="outline" class="flex-1">
         <mat-label>Handle (/endereço)</mat-label>
-        <input matInput formControlName="handle" autocomplete="off" />
+        <input matInput formControlName="handle" autocomplete="off" (input)="formatField('handle', $event)" />
         @if (form.controls.handle.hasError('required')) {
           <mat-error>Campo obrigatório.</mat-error>
-        } @else if (form.controls.handle.hasError('pattern')) {
-          <mat-error>3–30 caracteres: minúsculas, números e hífen.</mat-error>
+        } @else if (form.controls.handle.hasError('minlength')) {
+          <mat-error>Mínimo de 3 caracteres.</mat-error>
         }
       </mat-form-field>
       <mat-form-field appearance="outline" class="flex-1">
@@ -193,14 +194,23 @@ export class SystemUsers {
   protected readonly error = signal<string | null>(null);
 
   protected readonly form = this.fb.group({
-    username: ['', [Validators.required, Validators.pattern(/^[a-z0-9-]{3,30}$/)]],
+    username: ['', [Validators.required, Validators.minLength(3), Validators.pattern(/^[a-z0-9-]{3,30}$/)]],
     email: ['', [Validators.required, Validators.email]],
-    handle: ['', [Validators.required, Validators.pattern(/^[a-z0-9-]{3,30}$/)]],
+    handle: ['', [Validators.required, Validators.minLength(3), Validators.pattern(/^[a-z0-9-]{3,30}$/)]],
     password: ['', [Validators.required, Validators.minLength(8)]],
   });
 
   constructor() {
     this.reload();
+  }
+
+  /** Formata login/handle para o formato de URL em vez de rejeitar com erro de padrão. */
+  protected formatField(field: 'username' | 'handle', event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const slug = slugifyHandle(input.value);
+    if (slug !== input.value) {
+      this.form.controls[field].setValue(slug);
+    }
   }
 
   protected badge(status: UserStatus): { label: string; classes: string } {

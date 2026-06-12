@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { catchError, debounceTime, distinctUntilChanged, of, switchMap } from 'rxjs';
 import { RouterLink } from '@angular/router';
 import { Title } from '@angular/platform-browser';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -8,6 +10,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { AuthService } from '../../../core/auth/auth.service';
+import { slugifyHandle } from '../../../shared/handle';
 
 /** Auto-registro de publicador (Fase 2): o cadastro entra na fila de aprovação do admin. */
 @Component({
@@ -56,12 +59,12 @@ import { AuthService } from '../../../core/auth/auth.service';
         <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-2">
           <mat-form-field appearance="outline">
             <mat-label>Usuário (login)</mat-label>
-            <input matInput formControlName="username" autocomplete="username" />
-            <mat-hint>3–30 caracteres: letras minúsculas, números e hífen.</mat-hint>
+            <input matInput formControlName="username" autocomplete="username" (input)="onUsernameInput($event)" />
+            <mat-hint>Seu nome de acesso — formatamos automaticamente.</mat-hint>
             @if (form.controls.username.hasError('required')) {
               <mat-error>Campo obrigatório.</mat-error>
-            } @else if (form.controls.username.hasError('pattern')) {
-              <mat-error>Use 3–30 caracteres: letras minúsculas, números e hífen.</mat-error>
+            } @else if (form.controls.username.hasError('minlength')) {
+              <mat-error>Mínimo de 3 caracteres.</mat-error>
             }
           </mat-form-field>
           <mat-form-field appearance="outline">
@@ -77,11 +80,25 @@ import { AuthService } from '../../../core/auth/auth.service';
           <mat-form-field appearance="outline">
             <mat-label>Endereço público</mat-label>
             <span matTextPrefix class="text-gray-400">/</span>
-            <input matInput formControlName="handle" autocomplete="off" />
+            <input matInput formControlName="handle" autocomplete="off" (input)="onHandleInput($event)" />
+            <mat-hint>
+              Escolha livremente — formatamos para virar a URL do seu hub.
+              @switch (handleAvailability()) {
+                @case ('free') {
+                  <span class="font-medium text-green-600 dark:text-green-400">✓ disponível</span>
+                }
+                @case ('taken') {
+                  <span class="font-medium text-red-600 dark:text-red-400">✗ já está em uso</span>
+                }
+                @case ('checking') {
+                  <span class="text-gray-400">verificando…</span>
+                }
+              }
+            </mat-hint>
             @if (form.controls.handle.hasError('required')) {
               <mat-error>Campo obrigatório.</mat-error>
-            } @else if (form.controls.handle.hasError('pattern')) {
-              <mat-error>Use 3–30 caracteres: letras minúsculas, números e hífen.</mat-error>
+            } @else if (form.controls.handle.hasError('minlength')) {
+              <mat-error>Mínimo de 3 caracteres.</mat-error>
             }
           </mat-form-field>
           <mat-form-field appearance="outline">
@@ -110,22 +127,68 @@ export class Register {
   protected readonly loading = signal(false);
   protected readonly done = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly handleAvailability = signal<'idle' | 'checking' | 'free' | 'taken'>('idle');
 
   protected readonly form = this.fb.group({
-    username: ['', [Validators.required, Validators.pattern(/^[a-z0-9-]{3,30}$/)]],
+    username: ['', [Validators.required, Validators.minLength(3), Validators.pattern(/^[a-z0-9-]{3,30}$/)]],
     email: ['', [Validators.required, Validators.email]],
-    handle: ['', [Validators.required, Validators.pattern(/^[a-z0-9-]{3,30}$/)]],
+    handle: ['', [Validators.required, Validators.minLength(3), Validators.pattern(/^[a-z0-9-]{3,30}$/)]],
     password: ['', [Validators.required, Validators.minLength(8)]],
   });
 
   constructor() {
     // Materializa o cookie XSRF-TOKEN antes do POST de registro (mesmo motivo do login).
     this.auth.fetchSession().subscribe();
+    // Checagem ao vivo de disponibilidade do endereço (debounce para não martelar a API).
+    this.form.controls.handle.valueChanges
+      .pipe(
+        debounceTime(400),
+        distinctUntilChanged(),
+        switchMap((value) => {
+          if (!/^[a-z0-9-]{3,30}$/.test(value)) {
+            this.handleAvailability.set('idle');
+            return of(null);
+          }
+          this.handleAvailability.set('checking');
+          return this.auth.checkHandle(value).pipe(catchError(() => of(null)));
+        }),
+        takeUntilDestroyed(),
+      )
+      .subscribe((result) => {
+        if (result) {
+          this.handleAvailability.set(result.available ? 'free' : 'taken');
+        }
+      });
+  }
+
+  /** O login segue o mesmo formato de URL; enquanto o endereço não foi editado, sugerimos a partir dele. */
+  protected onUsernameInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const slug = slugifyHandle(input.value);
+    if (slug !== input.value) {
+      this.form.controls.username.setValue(slug);
+    }
+    if (this.form.controls.handle.pristine) {
+      this.form.controls.handle.setValue(slug);
+    }
+  }
+
+  /** Formata o que o usuário digitar para o formato de URL em vez de rejeitar com erro. */
+  protected onHandleInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const slug = slugifyHandle(input.value);
+    if (slug !== input.value) {
+      this.form.controls.handle.setValue(slug);
+    }
   }
 
   protected submit(): void {
     if (this.form.invalid || this.loading()) {
       this.form.markAllAsTouched();
+      return;
+    }
+    if (this.handleAvailability() === 'taken') {
+      this.error.set('O endereço escolhido já está em uso — tente outro.');
       return;
     }
     this.loading.set(true);
