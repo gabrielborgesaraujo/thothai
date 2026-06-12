@@ -16,6 +16,15 @@ export const publicRoutes: Routes = [
         path: 'registro',
         loadComponent: () => import('./register/register').then((m) => m.Register),
       },
+      // Recuperação de senha por e-mail (token de 30 minutos).
+      {
+        path: 'recuperar-senha',
+        loadComponent: () => import('./password/forgot-password').then((m) => m.ForgotPassword),
+      },
+      {
+        path: 'redefinir-senha',
+        loadComponent: () => import('./password/reset-password').then((m) => m.ResetPassword),
+      },
       // Páginas do publicador (Fase 2): currículo/identidade e portal de leitura por handle.
       {
         path: ':handle',

@@ -95,4 +95,4 @@ export class PublicLayout {
 }
 
 /** Primeiros segmentos que não são handle de publicador. */
-const NON_HANDLE_SEGMENTS = new Set(['registro', 'admin']);
+const NON_HANDLE_SEGMENTS = new Set(['registro', 'admin', 'recuperar-senha', 'redefinir-senha']);

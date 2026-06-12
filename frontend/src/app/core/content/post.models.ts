@@ -74,6 +74,12 @@ export interface PostRequest {
   scheduledAt: string | null;
 }
 
+/** Autor da publicação (link para o perfil no portal). */
+export interface PostAuthor {
+  handle: string;
+  displayName: string;
+}
+
 /** Link de navegação entre publicações (anterior/próxima). */
 export interface PostLink {
   slug: string;
@@ -115,6 +121,7 @@ export interface PublicPost {
   bannerUrl: string | null;
   tags: string[];
   publishedAt: string | null;
+  author: PostAuthor;
   previous: PostLink | null;
   next: PostLink | null;
   related: RelatedPost[];

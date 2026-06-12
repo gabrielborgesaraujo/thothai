@@ -26,6 +26,7 @@ import {
 } from '../../../../core/content/post.models';
 import { MarkdownPipe } from '../../../../core/content/markdown.pipe';
 import { AssistantService } from '../../../../core/assistant/assistant.service';
+import { ToastService } from '../../../../core/toast/toast.service';
 import { MediaSummary } from '../../../../core/media/media.models';
 import { MediaPicker } from '../../media/media-picker';
 import { MarkdownEditor } from '../../../../shared/markdown-editor';
@@ -450,6 +451,7 @@ export class PostForm {
   private readonly fb = inject(NonNullableFormBuilder);
   private readonly postService = inject(PostService);
   private readonly assistant = inject(AssistantService);
+  private readonly toast = inject(ToastService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
@@ -708,10 +710,13 @@ export class PostForm {
     save.subscribe({
       next: () => {
         this.discardBackup();
+        this.toast.success(id ? 'Postagem atualizada.' : 'Postagem criada.');
         this.router.navigate(['/admin/posts']);
       },
-      error: () => {
-        this.error.set('Falha ao salvar a postagem.');
+      error: (err: { error?: { detail?: string } }) => {
+        const detail = err?.error?.detail ?? 'Falha ao salvar a postagem.';
+        this.error.set(detail);
+        this.toast.error(detail);
         this.loading.set(false);
       },
     });

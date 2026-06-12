@@ -75,6 +75,14 @@ interface TocItem {
             <span class="text-gray-400 dark:text-gray-500">· {{ readingTime() }} min de leitura</span>
           </div>
           <h1 class="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">{{ p.title }}</h1>
+          <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            por
+            <a
+              [routerLink]="['/', p.author.handle]"
+              class="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+              >{{ p.author.displayName }}</a
+            >
+          </p>
           @if (p.summary) {
             <p class="mt-3 text-lg text-gray-600 dark:text-gray-400">{{ p.summary }}</p>
           }

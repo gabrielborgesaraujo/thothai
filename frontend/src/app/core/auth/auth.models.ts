@@ -13,4 +13,13 @@ export interface RegisterRequest {
   username: string;
   password: string;
   handle: string;
+  email: string;
+}
+
+/** Dados da conta do usuário logado. */
+export interface AccountInfo {
+  username: string;
+  handle: string;
+  role: UserRole;
+  email: string | null;
 }

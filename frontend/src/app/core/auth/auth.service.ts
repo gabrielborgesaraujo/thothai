@@ -1,7 +1,7 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { catchError, Observable, of, tap } from 'rxjs';
 import { ApiService } from '../api.service';
-import { AuthUser, RegisterRequest } from './auth.models';
+import { AccountInfo, AuthUser, RegisterRequest } from './auth.models';
 
 /**
  * Estado de autenticação do admin (RF01). A sessão vive no cookie HttpOnly do backend; aqui
@@ -33,6 +33,25 @@ export class AuthService {
   /** Troca a senha do admin (RF01). */
   changePassword(currentPassword: string, newPassword: string): Observable<void> {
     return this.api.post<void>('/admin/account/password', { currentPassword, newPassword });
+  }
+
+  /** Dados da conta do usuário logado. */
+  accountInfo(): Observable<AccountInfo> {
+    return this.api.get<AccountInfo>('/admin/account');
+  }
+
+  updateAccount(email: string): Observable<AccountInfo> {
+    return this.api.put<AccountInfo>('/admin/account', { email });
+  }
+
+  /** Pedido do link de redefinição de senha (sempre silencioso no servidor). */
+  requestPasswordReset(identifier: string): Observable<void> {
+    return this.api.post<void>('/auth/password-reset/request', { identifier });
+  }
+
+  /** Redefine a senha com o token recebido por e-mail (30 minutos, uso único). */
+  confirmPasswordReset(token: string, newPassword: string): Observable<void> {
+    return this.api.post<void>('/auth/password-reset/confirm', { token, newPassword });
   }
 
   /** Confirma a sessão no servidor; usado pelo guard. Retorna null se não autenticado. */

@@ -7,6 +7,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { ApiService } from '../../../core/api.service';
+import { ToastService } from '../../../core/toast/toast.service';
 import { UserRole } from '../../../core/auth/auth.models';
 
 type UserStatus = 'PENDING' | 'ACTIVE' | 'DISABLED';
@@ -15,6 +16,7 @@ interface SystemUser {
   id: string;
   username: string;
   handle: string;
+  email: string | null;
   role: UserRole;
   status: UserStatus;
   createdAt: string | null;
@@ -71,10 +73,29 @@ const STATUS_BADGES: Record<UserStatus, { label: string; classes: string }> = {
       <mat-form-field appearance="outline" class="flex-1">
         <mat-label>Usuário (login)</mat-label>
         <input matInput formControlName="username" autocomplete="off" />
+        @if (form.controls.username.hasError('required')) {
+          <mat-error>Campo obrigatório.</mat-error>
+        } @else if (form.controls.username.hasError('pattern')) {
+          <mat-error>3–30 caracteres: minúsculas, números e hífen.</mat-error>
+        }
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="flex-1">
+        <mat-label>E-mail</mat-label>
+        <input matInput type="email" formControlName="email" autocomplete="off" />
+        @if (form.controls.email.hasError('required')) {
+          <mat-error>Campo obrigatório.</mat-error>
+        } @else if (form.controls.email.hasError('email')) {
+          <mat-error>E-mail inválido.</mat-error>
+        }
       </mat-form-field>
       <mat-form-field appearance="outline" class="flex-1">
         <mat-label>Handle (/endereço)</mat-label>
         <input matInput formControlName="handle" autocomplete="off" />
+        @if (form.controls.handle.hasError('required')) {
+          <mat-error>Campo obrigatório.</mat-error>
+        } @else if (form.controls.handle.hasError('pattern')) {
+          <mat-error>3–30 caracteres: minúsculas, números e hífen.</mat-error>
+        }
       </mat-form-field>
       <mat-form-field appearance="outline" class="flex-1">
         <mat-label>Senha inicial</mat-label>
@@ -164,6 +185,7 @@ const STATUS_BADGES: Record<UserStatus, { label: string; classes: string }> = {
 export class SystemUsers {
   private readonly api = inject(ApiService);
   private readonly fb = inject(NonNullableFormBuilder);
+  private readonly toast = inject(ToastService);
 
   protected readonly users = signal<SystemUser[] | null>(null);
   protected readonly loading = signal(true);
@@ -172,6 +194,7 @@ export class SystemUsers {
 
   protected readonly form = this.fb.group({
     username: ['', [Validators.required, Validators.pattern(/^[a-z0-9-]{3,30}$/)]],
+    email: ['', [Validators.required, Validators.email]],
     handle: ['', [Validators.required, Validators.pattern(/^[a-z0-9-]{3,30}$/)]],
     password: ['', [Validators.required, Validators.minLength(8)]],
   });
@@ -193,8 +216,9 @@ export class SystemUsers {
     this.error.set(null);
     this.api.post<SystemUser>('/system/users', this.form.getRawValue()).subscribe({
       next: () => {
-        this.form.reset({ username: '', handle: '', password: '' });
+        this.form.reset({ username: '', email: '', handle: '', password: '' });
         this.saving.set(false);
+        this.toast.success('Publicador criado e ativo.');
         this.reload();
       },
       error: (err: { error?: { detail?: string } }) => {
@@ -210,6 +234,7 @@ export class SystemUsers {
     this.api.patch<SystemUser>(`/system/users/${user.id}`, { status }).subscribe({
       next: () => {
         this.saving.set(false);
+        this.toast.success(status === 'ACTIVE' ? 'Cadastro aprovado.' : 'Cadastro desativado.');
         this.reload();
       },
       error: (err: { error?: { detail?: string } }) => {

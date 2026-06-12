@@ -58,16 +58,41 @@ import { AuthService } from '../../../core/auth/auth.service';
             <mat-label>Usuário (login)</mat-label>
             <input matInput formControlName="username" autocomplete="username" />
             <mat-hint>3–30 caracteres: letras minúsculas, números e hífen.</mat-hint>
+            @if (form.controls.username.hasError('required')) {
+              <mat-error>Campo obrigatório.</mat-error>
+            } @else if (form.controls.username.hasError('pattern')) {
+              <mat-error>Use 3–30 caracteres: letras minúsculas, números e hífen.</mat-error>
+            }
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>E-mail</mat-label>
+            <input matInput type="email" formControlName="email" autocomplete="email" />
+            <mat-hint>Usado para recuperar o acesso à conta.</mat-hint>
+            @if (form.controls.email.hasError('required')) {
+              <mat-error>Campo obrigatório.</mat-error>
+            } @else if (form.controls.email.hasError('email')) {
+              <mat-error>E-mail inválido.</mat-error>
+            }
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Endereço público</mat-label>
-            <span matTextPrefix class="text-gray-400">{{ originHost }}/</span>
+            <span matTextPrefix class="text-gray-400">/</span>
             <input matInput formControlName="handle" autocomplete="off" />
+            @if (form.controls.handle.hasError('required')) {
+              <mat-error>Campo obrigatório.</mat-error>
+            } @else if (form.controls.handle.hasError('pattern')) {
+              <mat-error>Use 3–30 caracteres: letras minúsculas, números e hífen.</mat-error>
+            }
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Senha</mat-label>
             <input matInput type="password" formControlName="password" autocomplete="new-password" />
             <mat-hint>Mínimo de 8 caracteres.</mat-hint>
+            @if (form.controls.password.hasError('required')) {
+              <mat-error>Campo obrigatório.</mat-error>
+            } @else if (form.controls.password.hasError('minlength')) {
+              <mat-error>Mínimo de 8 caracteres.</mat-error>
+            }
           </mat-form-field>
           <button matButton="filled" type="submit" class="mt-2" [disabled]="loading()">
             {{ loading() ? 'Enviando…' : 'Cadastrar' }}
@@ -85,10 +110,10 @@ export class Register {
   protected readonly loading = signal(false);
   protected readonly done = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly originHost = 'thothai';
 
   protected readonly form = this.fb.group({
     username: ['', [Validators.required, Validators.pattern(/^[a-z0-9-]{3,30}$/)]],
+    email: ['', [Validators.required, Validators.email]],
     handle: ['', [Validators.required, Validators.pattern(/^[a-z0-9-]{3,30}$/)]],
     password: ['', [Validators.required, Validators.minLength(8)]],
   });

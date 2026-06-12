@@ -53,6 +53,9 @@ import { ThemeToggle } from '../../../core/theme/theme-toggle';
               <mat-label>Usuário</mat-label>
               <mat-icon matPrefix class="text-gray-400">person</mat-icon>
               <input matInput formControlName="username" autocomplete="username" />
+              @if (form.controls.username.hasError('required')) {
+                <mat-error>Campo obrigatório.</mat-error>
+              }
             </mat-form-field>
 
             <mat-form-field appearance="outline">
@@ -74,7 +77,15 @@ import { ThemeToggle } from '../../../core/theme/theme-toggle';
               >
                 <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
               </button>
+              @if (form.controls.password.hasError('required')) {
+                <mat-error>Campo obrigatório.</mat-error>
+              }
             </mat-form-field>
+            <a
+              routerLink="/recuperar-senha"
+              class="-mt-1 mb-1 text-right text-xs text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400"
+              >Esqueci minha senha</a
+            >
 
             @if (error()) {
               <p
