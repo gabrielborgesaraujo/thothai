@@ -78,8 +78,16 @@ services:
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:?defina SESSION_COOKIE_SECURE (true atrás de HTTPS)}
       SESSION_TIMEOUT: ${SESSION_TIMEOUT:?defina SESSION_TIMEOUT}
       FRONTEND_ORIGIN: ${PUBLIC_ORIGIN:?defina PUBLIC_ORIGIN}
-      # Base das URLs absolutas em feed.xml/sitemap.xml/robots.txt (SEO).
+      # Base das URLs absolutas em feed.xml/sitemap.xml/robots.txt e do link de reset de senha.
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?defina PUBLIC_ORIGIN}
+      # E-mail transacional (reset de senha) — opcional: sem SMTP, o conteúdo é apenas logado.
+      SPRING_MAIL_HOST: ${SMTP_HOST:-}
+      SPRING_MAIL_PORT: ${SMTP_PORT:-587}
+      SPRING_MAIL_USERNAME: ${SMTP_USERNAME:-}
+      SPRING_MAIL_PASSWORD: ${SMTP_PASSWORD:-}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "true"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "true"
+      THOTHAI_MAIL_FROM: ${SMTP_FROM:-no-reply@thothai.local}
       # IA/busca (RF04/RF05) — opcionais; deixe vazias para desabilitar.
       AI_PROVIDER: ${AI_PROVIDER}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}

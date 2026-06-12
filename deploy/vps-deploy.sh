@@ -83,9 +83,26 @@ create_env() {
   MINIO_PORT="${MINIO_PORT:-9000}"
 
   echo
+  info "SMTP para e-mails transacionais (reset de senha). Opcional — sem SMTP, o link de"
+  info "redefinição é apenas LOGADO no backend (docker compose logs backend):"
+  read -rp "SMTP_HOST (Enter para pular): " SMTP_HOST
+  SMTP_PORT=587
+  SMTP_USERNAME=""
+  SMTP_PASSWORD=""
+  SMTP_FROM="no-reply@$DOMAIN"
+  if [ -n "$SMTP_HOST" ]; then
+    read -rp "SMTP_PORT [587]: " SMTP_PORT_IN
+    SMTP_PORT="${SMTP_PORT_IN:-587}"
+    read -rp "SMTP_USERNAME: " SMTP_USERNAME
+    read -rsp "SMTP_PASSWORD: " SMTP_PASSWORD; echo
+    read -rp "Remetente (From) [no-reply@$DOMAIN]: " SMTP_FROM_IN
+    SMTP_FROM="${SMTP_FROM_IN:-no-reply@$DOMAIN}"
+  fi
+
+  echo
   info "As chaves de IA (Anthropic, OpenAI, Gemini, Qwen ou compatíveis) e do Tavily são"
-  info "configuradas DEPOIS, pelo painel em Integrações. Os campos abaixo são apenas um"
-  info "fallback de servidor (somente Anthropic/Tavily) — pode pular com Enter:"
+  info "configuradas DEPOIS, pelo painel em Integrações (cada publicador traz as suas)."
+  info "Os campos abaixo são apenas um fallback do tenant do sistema — pode pular com Enter:"
   read -rp "ANTHROPIC_API_KEY (fallback opcional): " ANTHROPIC_API_KEY
   read -rp "TAVILY_API_KEY (fallback opcional): " TAVILY_API_KEY
 
@@ -120,6 +137,13 @@ SESSION_TIMEOUT=30m
 PUBLIC_PORT=$PUBLIC_PORT
 PUBLIC_ORIGIN=https://$DOMAIN
 NG_ALLOWED_HOSTS=$DOMAIN
+
+# --- E-mail transacional (reset de senha) — opcional; em branco, o link é apenas logado ---
+SMTP_HOST=$SMTP_HOST
+SMTP_PORT=$SMTP_PORT
+SMTP_USERNAME=$SMTP_USERNAME
+SMTP_PASSWORD=$SMTP_PASSWORD
+SMTP_FROM=$SMTP_FROM
 
 # --- IA / busca viva (opcionais) ---
 AI_PROVIDER=claude
@@ -188,17 +212,25 @@ print_npm_instructions() {
     - SSL ................. Request a new certificate + Force SSL
 
  Depois acesse:
-    Portal ......... https://$domain
-    Painel admin ... https://$domain/admin/login
-    Feed RSS ....... https://$domain/feed.xml
+    Landing da plataforma ...... https://$domain
+    Login do painel ............ https://$domain/admin/login
+    Cadastro de publicadores ... https://$domain/registro
+    Feed RSS (todos os hubs) ... https://$domain/feed.xml
 
- Configurações feitas pelo próprio painel (Integrações):
-    - Motor de IA: escolha o provedor (Anthropic, OpenAI, Gemini, Qwen ou
-      OpenAI-compatível) e informe sua chave/modelo.
-    - LinkedIn: crie um app em developers.linkedin.com (produtos "Share on
-      LinkedIn" + "Sign In with LinkedIn using OpenID Connect") e cadastre
-      esta redirect URL no app:
+ Plataforma multi-tenant (Fase 2):
+    - O ADMIN_USERNAME criado é o administrador do SISTEMA (gere usuários e
+      integrações macro) e também publicador, com hub próprio.
+    - Publicadores se cadastram em /registro e aguardam sua aprovação em
+      Painel → Sistema → Usuários (ou crie contas já ativas por lá).
+    - Cada publicador configura as PRÓPRIAS chaves de IA/Tavily em
+      Integrações e conecta a própria conta do LinkedIn.
+    - Integração macro do LinkedIn (admin do sistema): crie um app em
+      developers.linkedin.com (produtos "Share on LinkedIn" + "Sign In with
+      LinkedIn using OpenID Connect"), cadastre a redirect URL abaixo e
+      informe as credenciais em Painel → Sistema → Integrações macro:
           https://$domain/api/admin/social/linkedin/callback
+    - Reset de senha: sem SMTP no .env, o link sai apenas no log do
+      backend (${COMPOSE[*]} logs backend).
 
  Comandos úteis:
     ${COMPOSE[*]} ps

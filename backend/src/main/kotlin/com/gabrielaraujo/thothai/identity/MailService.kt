@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service
 internal class MailService(
     private val mailSender: ObjectProvider<JavaMailSender>,
     @param:Value("\${thothai.mail.from:no-reply@thothai.local}") private val from: String,
+    @param:Value("\${spring.mail.host:}") private val smtpHost: String,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -24,7 +25,9 @@ internal class MailService(
         subject: String,
         text: String,
     ) {
-        val sender = mailSender.ifAvailable
+        // Host em branco (env presente mas vazia) também conta como "não configurado":
+        // o conteúdo vai para o log, preservando o link de redefinição em dev/instalações sem SMTP.
+        val sender = mailSender.ifAvailable.takeIf { smtpHost.isNotBlank() }
         if (sender == null) {
             log.info("SMTP não configurado — e-mail para {} apenas logado:\n[{}]\n{}", to, subject, text)
             return
