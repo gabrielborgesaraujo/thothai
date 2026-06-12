@@ -47,6 +47,7 @@ internal class UserManagementService(
     ): UserAccount {
         val username = request.username.trim().lowercase()
         val handle = request.handle.trim().lowercase()
+        val email = request.email.trim().lowercase()
         if (!USERNAME.matches(username)) {
             throw InvalidRequestException("Usuário deve ter 3–30 caracteres: letras minúsculas, números e hífen")
         }
@@ -62,6 +63,9 @@ internal class UserManagementService(
         if (users.existsByHandle(handle)) {
             throw BusinessRuleException("Esse endereço já está em uso")
         }
+        if (users.existsByEmail(email)) {
+            throw BusinessRuleException("Esse e-mail já está cadastrado")
+        }
         // O tenant do novo publicador é o handle; o registro nasce sob esse tenant (RNF03).
         return TenantContext.runAs(handle) {
             users.save(
@@ -69,6 +73,7 @@ internal class UserManagementService(
                     username = username,
                     passwordHash = requireNotNull(passwordEncoder.encode(request.password)),
                     handle = handle,
+                    email = email,
                     role = UserRole.PUBLISHER,
                     status = status,
                 ),
@@ -102,6 +107,8 @@ internal class UserManagementService(
                 "default",
                 "thothai",
                 "www",
+                "recuperar-senha",
+                "redefinir-senha",
             )
     }
 }

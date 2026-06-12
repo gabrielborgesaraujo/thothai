@@ -38,6 +38,9 @@ class UserAccount(
     var passwordHash: String,
     @Column(name = "handle", nullable = false, length = 64)
     var handle: String,
+    /** E-mail de cadastro (destino do link de redefinição de senha). */
+    @Column(name = "email", length = 255)
+    var email: String? = null,
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 32)
     var role: UserRole = UserRole.PUBLISHER,

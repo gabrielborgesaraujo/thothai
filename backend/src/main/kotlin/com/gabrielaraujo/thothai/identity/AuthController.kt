@@ -32,6 +32,7 @@ internal class AuthController(
     private val securityContextRepository: SecurityContextRepository,
     private val loginAttempts: LoginAttemptService,
     private val userManagement: UserManagementService,
+    private val passwordReset: PasswordResetService,
 ) {
     private val securityContextHolderStrategy = SecurityContextHolder.getContextHolderStrategy()
 
@@ -70,6 +71,20 @@ internal class AuthController(
 
     @GetMapping("/me")
     fun me(authentication: Authentication): UserResponse = (authentication.principal as AppUserDetails).toUserResponse()
+
+    /** Pedido de redefinição de senha — sempre 204 (não revela se a conta existe). */
+    @PostMapping("/password-reset/request")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun requestPasswordReset(
+        @Valid @RequestBody request: PasswordResetRequest,
+    ) = passwordReset.request(request.identifier)
+
+    /** Redefine a senha com o token recebido por e-mail (válido por 30 minutos, uso único). */
+    @PostMapping("/password-reset/confirm")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun confirmPasswordReset(
+        @Valid @RequestBody request: PasswordResetConfirmRequest,
+    ) = passwordReset.confirm(request.token, request.newPassword)
 
     private fun AppUserDetails.toUserResponse() = UserResponse(username = username, role = role, handle = handle)
 

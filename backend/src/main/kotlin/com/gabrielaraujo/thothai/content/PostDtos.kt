@@ -71,6 +71,12 @@ data class PostStatsResponse(
     val total: Long,
 )
 
+/** Autor da publicação (link para o perfil no portal). */
+data class PostAuthorResponse(
+    val handle: String,
+    val displayName: String,
+)
+
 /** Link de navegação entre publicações (anterior/próxima). */
 data class PostLinkResponse(
     val slug: String,
@@ -112,6 +118,7 @@ data class PublicPostResponse(
     val bannerUrl: String?,
     val tags: List<String>,
     val publishedAt: Instant?,
+    val author: PostAuthorResponse,
     val previous: PostLinkResponse?,
     val next: PostLinkResponse?,
     val related: List<RelatedPostResponse>,
@@ -165,7 +172,7 @@ internal fun PostRevision.toResponse() =
         createdAt = createdAt,
     )
 
-internal fun PostService.PublishedDetail.toPublic() =
+internal fun PostService.PublishedDetail.toPublic(author: PostAuthorResponse) =
     PublicPostResponse(
         title = post.title,
         slug = post.slug,
@@ -175,6 +182,7 @@ internal fun PostService.PublishedDetail.toPublic() =
         bannerUrl = post.bannerUrl,
         tags = post.tags.sorted(),
         publishedAt = post.publishedAt,
+        author = author,
         previous = previous?.toLink(),
         next = next?.toLink(),
         related = related.map { it.toRelated() },

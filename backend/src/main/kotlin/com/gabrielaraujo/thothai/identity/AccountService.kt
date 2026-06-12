@@ -13,6 +13,28 @@ internal class AccountService(
     private val users: UserAccountRepository,
     private val passwordEncoder: PasswordEncoder,
 ) {
+    @Transactional(readOnly = true)
+    fun info(username: String): AccountInfoResponse = find(username).toInfo()
+
+    /** Atualiza o e-mail de cadastro (único entre as contas). */
+    fun updateEmail(
+        username: String,
+        email: String,
+    ): AccountInfoResponse {
+        val user = find(username)
+        val normalized = email.trim().lowercase()
+        if (normalized != user.email && users.existsByEmail(normalized)) {
+            throw InvalidRequestException("Esse e-mail já está cadastrado em outra conta")
+        }
+        user.email = normalized
+        return user.toInfo()
+    }
+
+    private fun find(username: String): UserAccount =
+        users.findByUsername(username) ?: throw ResourceNotFoundException("Usuário não encontrado")
+
+    private fun UserAccount.toInfo() = AccountInfoResponse(username = username, handle = handle, role = role, email = email)
+
     fun changePassword(
         username: String,
         currentPassword: String,

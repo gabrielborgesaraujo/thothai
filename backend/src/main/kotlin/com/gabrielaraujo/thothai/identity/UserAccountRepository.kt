@@ -9,9 +9,13 @@ internal interface UserAccountRepository : JpaRepository<UserAccount, UUID> {
 
     fun findByHandle(handle: String): UserAccount?
 
+    fun findByEmail(email: String): UserAccount?
+
     fun existsByUsername(username: String): Boolean
 
     fun existsByHandle(handle: String): Boolean
+
+    fun existsByEmail(email: String): Boolean
 
     fun findAllByOrderByCreatedAtDesc(): List<UserAccount>
 

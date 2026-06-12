@@ -87,7 +87,14 @@ internal class SecurityConfig {
                 // só derrubaria o primeiro acesso (cookie ainda não materializado no navegador).
                 csrf.ignoringRequestMatchers("/api/metrics/views")
             }.authorizeHttpRequests { auth ->
-                auth.requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register").permitAll()
+                auth
+                    .requestMatchers(
+                        HttpMethod.POST,
+                        "/api/auth/login",
+                        "/api/auth/register",
+                        "/api/auth/password-reset/request",
+                        "/api/auth/password-reset/confirm",
+                    ).permitAll()
                 auth.requestMatchers(HttpMethod.POST, "/api/metrics/views").permitAll()
                 // Portal público por publicador (/api/p/{handle}/…) e diretório da plataforma.
                 auth.requestMatchers(HttpMethod.GET, "/api/p/**", "/api/publishers").permitAll()

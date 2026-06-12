@@ -1,6 +1,8 @@
 package com.gabrielaraujo.thothai.content
 
+import com.gabrielaraujo.thothai.profile.ProfileQueries
 import com.gabrielaraujo.thothai.shared.PageResponse
+import com.gabrielaraujo.thothai.shared.TenantContext
 import org.springframework.data.domain.PageRequest
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api/p/{handle}/posts")
 internal class PublicPostController(
     private val postService: PostService,
+    private val profiles: ProfileQueries,
 ) {
     @GetMapping
     fun list(
@@ -32,6 +35,15 @@ internal class PublicPostController(
 
     @GetMapping("/{slug}")
     fun get(
+        @PathVariable handle: String,
         @PathVariable slug: String,
-    ): PublicPostResponse = postService.publishedDetail(slug).toPublic()
+    ): PublicPostResponse {
+        // Autor: handle do caminho + nome do cartão de identidade (fallback no próprio handle).
+        val author =
+            PostAuthorResponse(
+                handle = handle,
+                displayName = profiles.displayNameForTenant(TenantContext.currentTenant()) ?: handle,
+            )
+        return postService.publishedDetail(slug).toPublic(author)
+    }
 }

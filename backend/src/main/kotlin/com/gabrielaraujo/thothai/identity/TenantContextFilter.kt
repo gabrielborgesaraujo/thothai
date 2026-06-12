@@ -23,18 +23,21 @@ internal open class TenantContextFilter(
         filterChain: FilterChain,
     ) {
         try {
-            val principal = SecurityContextHolder.getContext().authentication?.principal
-            if (principal is AppUserDetails) {
-                TenantContext.setCurrentTenant(principal.tenantId)
+            // O handle do caminho tem PRECEDÊNCIA sobre a sessão: rotas /api/p/{handle} são
+            // endereçadas explicitamente a um publicador — um visitante logado vendo o hub de
+            // outra pessoa deve receber o conteúdo DELA, não o próprio.
+            val handle = PUBLIC_HANDLE_PATH.find(request.requestURI)?.groupValues?.get(1)
+            if (handle != null) {
+                val owner = users.findByHandle(handle)?.takeIf { it.status == UserStatus.ACTIVE }
+                if (owner == null) {
+                    response.sendError(HttpServletResponse.SC_NOT_FOUND, "Publicador não encontrado")
+                    return
+                }
+                TenantContext.setCurrentTenant(owner.tenantId)
             } else {
-                val handle = PUBLIC_HANDLE_PATH.find(request.requestURI)?.groupValues?.get(1)
-                if (handle != null) {
-                    val owner = users.findByHandle(handle)?.takeIf { it.status == UserStatus.ACTIVE }
-                    if (owner == null) {
-                        response.sendError(HttpServletResponse.SC_NOT_FOUND, "Publicador não encontrado")
-                        return
-                    }
-                    TenantContext.setCurrentTenant(owner.tenantId)
+                val principal = SecurityContextHolder.getContext().authentication?.principal
+                if (principal is AppUserDetails) {
+                    TenantContext.setCurrentTenant(principal.tenantId)
                 }
             }
             filterChain.doFilter(request, response)
