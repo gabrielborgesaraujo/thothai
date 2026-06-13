@@ -34,7 +34,11 @@ import { MarkdownPipe } from '../../../core/content/markdown.pipe';
             <p class="mt-1 text-lg text-indigo-600 dark:text-indigo-400">{{ p.headline }}</p>
           }
           @if (p.bio) {
-            <p class="mt-3 leading-relaxed text-gray-700 dark:text-gray-300">{{ p.bio }}</p>
+            <!-- Bio rica (Markdown editado no painel). -->
+            <div
+              class="markdown-body mt-3 leading-relaxed text-gray-700 dark:text-gray-300"
+              [innerHTML]="p.bio | markdown"
+            ></div>
           }
           <div class="mt-5 flex flex-wrap justify-center gap-3 sm:justify-start">
             @if (p.linkedinUrl) {
@@ -181,8 +185,18 @@ export class Home {
     return `${start} – ${end}`;
   }
 
+  /** Markdown vira texto puro para meta tags e JSON-LD (sem #, *, links etc.). */
+  private plainText(markdown: string): string {
+    return markdown
+      .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1') // links/imagens → texto
+      .replace(/[#>*_`~-]/g, '') // marcação inline/bloco
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   private applyMeta(profile: Profile): void {
-    const description = profile.headline ?? profile.bio ?? profile.displayName;
+    const bioText = profile.bio ? this.plainText(profile.bio) : null;
+    const description = profile.headline ?? bioText ?? profile.displayName;
     this.title.setTitle(`${profile.displayName} — ThothAI`);
     this.meta.updateTag({ name: 'description', content: description });
     this.meta.updateTag({ property: 'og:title', content: profile.displayName });
@@ -198,7 +212,7 @@ export class Home {
       '@type': 'Person',
       name: profile.displayName,
       jobTitle: profile.headline ?? undefined,
-      description: profile.bio ?? undefined,
+      description: bioText ?? undefined,
       email: profile.email ?? undefined,
       image: profile.photoUrl ?? undefined,
       sameAs: profile.linkedinUrl ? [profile.linkedinUrl] : undefined,

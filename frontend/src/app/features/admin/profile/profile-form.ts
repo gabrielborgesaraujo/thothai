@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -8,6 +9,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { ProfileService } from '../../../core/profile/profile.service';
 import { Profile, ProfileRequest } from '../../../core/profile/profile.models';
 import { MediaService } from '../../../core/media/media.service';
+import { MarkdownEditor } from '../../../shared/markdown-editor';
 
 /** Edição do cartão de identidade do publicador (RF07), com upload de foto reutilizando o RF03. */
 @Component({
@@ -19,6 +21,7 @@ import { MediaService } from '../../../core/media/media.service';
     MatButtonModule,
     MatIconModule,
     MatProgressBarModule,
+    MarkdownEditor,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -82,10 +85,15 @@ import { MediaService } from '../../../core/media/media.service';
           <input matInput formControlName="headline" placeholder="Ex.: Engenheiro de Software" />
         </mat-form-field>
 
-        <mat-form-field appearance="outline">
-          <mat-label>Bio</mat-label>
-          <textarea matInput formControlName="bio" rows="4"></textarea>
-        </mat-form-field>
+        <!-- Bio rica (Markdown via WYSIWYG); renderizada formatada no hub público. -->
+        <div>
+          <p class="mb-1 text-xs font-medium text-gray-500 dark:text-gray-400">Bio</p>
+          <app-markdown-editor
+            [value]="bioValue()"
+            [allowImages]="false"
+            (valueChange)="form.controls.bio.setValue($event)"
+          />
+        </div>
 
         <div class="flex flex-col gap-3 sm:flex-row">
           <mat-form-field appearance="outline" class="flex-1">
@@ -122,6 +130,11 @@ export class ProfileForm {
     bio: [''],
     linkedinUrl: [''],
     email: ['', Validators.email],
+  });
+
+  /** Espelha a bio em um signal para alimentar o editor sob OnPush. */
+  protected readonly bioValue = toSignal(this.form.controls.bio.valueChanges, {
+    initialValue: '',
   });
 
   constructor() {

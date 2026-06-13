@@ -33,7 +33,7 @@ internal class AssistantService(
                     append("Contexto encontrado na web (use como base, cite quando relevante):\n")
                     append(context).append("\n\n")
                 }
-                append("Gere um rascunho técnico em português, no formato de saída especificado.")
+                append("Gere um rascunho técnico, no formato de saída especificado.")
             }
 
         val raw = llm.complete(DRAFT_SYSTEM, user, maxTokens = 4096)
@@ -196,6 +196,7 @@ internal class AssistantService(
                 "RESUMO: <resumo de até duas frases, em uma única linha>\n" +
                 "CONTEUDO:\n" +
                 "<o artigo completo em Markdown>\n" +
+                "REFERÊNCIAS: \n" +
                 "Não repita o título como cabeçalho no início do conteúdo — comece direto no texto " +
                 "ou na primeira seção (##)."
         const val REVIEW_SYSTEM =
