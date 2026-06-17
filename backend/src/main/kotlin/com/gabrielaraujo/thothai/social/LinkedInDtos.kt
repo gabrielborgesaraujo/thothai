@@ -17,7 +17,7 @@ data class LinkedInCredentialsRequest(
 /** Publicação no feed do membro conectado. */
 data class LinkedInShareRequest(
     @field:NotBlank
-    @field:Size(max = 2900)
+    @field:Size(max = 3000)
     val text: String,
     /** URL do artigo no portal (vira o cartão do post); opcional. */
     @field:Size(max = 1024)

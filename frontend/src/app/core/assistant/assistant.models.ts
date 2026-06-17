@@ -39,6 +39,24 @@ export interface ImageProviderInfo {
   defaultBaseUrl: string;
 }
 
+/** Provedores de embeddings (memória do autor / RAG). */
+export type EmbeddingProvider = 'OPENAI' | 'GEMINI' | 'OPENAI_COMPATIBLE';
+
+export interface EmbeddingProviderInfo {
+  id: EmbeddingProvider;
+  label: string;
+  defaultModel: string;
+  defaultBaseUrl: string;
+  requiresBaseUrl: boolean;
+}
+
+/** Situação da memória de publicações (RAG). */
+export interface AuthorMemoryStatus {
+  configured: boolean;
+  indexed: number;
+  total: number;
+}
+
 /** Origem efetiva de uma chave de IA. */
 export type AiKeySource = 'CUSTOM' | 'ENVIRONMENT';
 
@@ -72,6 +90,12 @@ export interface AiSettings {
   imageModel: string | null;
   imageBaseUrl: string | null;
   imageProviders: ImageProviderInfo[];
+  /** Embeddings (memória do autor / RAG). */
+  embeddingProvider: EmbeddingProvider | null;
+  embeddingKeyHint: string | null;
+  embeddingModel: string | null;
+  embeddingBaseUrl: string | null;
+  embeddingProviders: EmbeddingProviderInfo[];
 }
 
 /** Atualização parcial: campo `null`/omitido mantém; string vazia limpa. */
@@ -85,4 +109,8 @@ export interface AiSettingsRequest {
   imageApiKey?: string;
   imageModel?: string;
   imageBaseUrl?: string;
+  embeddingProvider?: EmbeddingProvider;
+  embeddingApiKey?: string;
+  embeddingModel?: string;
+  embeddingBaseUrl?: string;
 }

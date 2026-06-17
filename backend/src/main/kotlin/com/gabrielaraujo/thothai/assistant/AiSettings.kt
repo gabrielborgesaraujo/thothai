@@ -37,4 +37,14 @@ class AiSettings(
     var imageModel: String? = null,
     @Column(name = "image_base_url", length = 512)
     var imageBaseUrl: String? = null,
+    /** Embeddings da memória do autor (RAG) — config dedicada. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "embedding_provider", length = 32)
+    var embeddingProvider: EmbeddingProvider? = null,
+    @Column(name = "embedding_api_key", length = 255)
+    var embeddingApiKey: String? = null,
+    @Column(name = "embedding_model", length = 128)
+    var embeddingModel: String? = null,
+    @Column(name = "embedding_base_url", length = 512)
+    var embeddingBaseUrl: String? = null,
 ) : AbstractTenantEntity()

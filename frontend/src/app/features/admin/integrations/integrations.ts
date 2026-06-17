@@ -22,6 +22,9 @@ import {
   AiProvider,
   AiProviderInfo,
   AiSettings,
+  AuthorMemoryStatus,
+  EmbeddingProvider,
+  EmbeddingProviderInfo,
   ImageProvider,
   ImageProviderInfo,
 } from '../../../core/assistant/assistant.models';
@@ -245,6 +248,88 @@ import { LinkedInStatus, SocialService } from '../../../core/social/social.servi
           }
         </section>
 
+        <!-- Memória de publicações (RAG): embeddings que ensinam o tom do autor à IA. -->
+        <section class="rounded-xl border border-gray-200 p-5 dark:border-gray-800">
+          <div class="mb-1 flex items-center justify-between gap-2">
+            <h2 class="inline-flex items-center gap-2 font-medium">
+              <mat-icon class="text-indigo-500">psychology</mat-icon>
+              Memória de publicações
+            </h2>
+            <span
+              class="rounded-full px-2.5 py-0.5 text-xs font-medium"
+              [class]="badge(settings()?.embeddingProvider ? 'CUSTOM' : null).classes"
+              >{{ settings()?.embeddingProvider ? 'Ativa' : 'Não configurada' }}</span
+            >
+          </div>
+          <p class="mb-4 text-xs text-gray-500 dark:text-gray-400">
+            Indexa suas publicações (embeddings) para a IA escrever no seu tom e abordagem. As chaves
+            de texto/imagem não servem aqui — configure um provedor de embeddings.
+            @if (settings()?.embeddingKeyHint; as hint) {
+              Chave atual: <code class="font-mono">{{ hint }}</code
+              >.
+            }
+          </p>
+
+          <mat-form-field appearance="outline" class="w-full">
+            <mat-label>Provedor de embeddings</mat-label>
+            <mat-select formControlName="embeddingProvider">
+              <mat-option value="">— Não usar —</mat-option>
+              @for (provider of settings()?.embeddingProviders ?? []; track provider.id) {
+                <mat-option [value]="provider.id">{{ provider.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          @if (form.controls.embeddingProvider.value) {
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Chave de API</mat-label>
+              <input
+                matInput
+                type="password"
+                formControlName="embeddingApiKey"
+                autocomplete="off"
+                [placeholder]="settings()?.embeddingProvider ? 'Deixe em branco para manter a atual' : ''"
+              />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Modelo</mat-label>
+              <input matInput formControlName="embeddingModel" [placeholder]="selectedEmbeddingProvider()?.defaultModel ?? ''" />
+              @if (selectedEmbeddingProvider()?.defaultModel) {
+                <mat-hint>Em branco usa o padrão ({{ selectedEmbeddingProvider()?.defaultModel }}).</mat-hint>
+              }
+            </mat-form-field>
+            @if (selectedEmbeddingProvider()?.requiresBaseUrl || form.controls.embeddingProvider.value === 'OPENAI_COMPATIBLE') {
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Base URL da API</mat-label>
+                <input matInput formControlName="embeddingBaseUrl" placeholder="https://api.exemplo.com/v1" />
+              </mat-form-field>
+            }
+            @if (settings()?.embeddingProvider) {
+              <button matButton type="button" (click)="clearEmbeddingKey()" [disabled]="saving()">
+                <mat-icon>delete</mat-icon>
+                Remover minha chave
+              </button>
+            }
+          }
+
+          @if (memory(); as mem) {
+            <div class="mt-3 flex flex-wrap items-center gap-3 border-t border-gray-100 pt-3 dark:border-gray-800">
+              <span class="text-sm text-gray-600 dark:text-gray-300">
+                {{ mem.indexed }} de {{ mem.total }} publicação(ões) indexada(s).
+              </span>
+              <button
+                matButton
+                type="button"
+                (click)="reindexMemory()"
+                [disabled]="reindexing() || !mem.configured"
+              >
+                <mat-icon>refresh</mat-icon>
+                {{ reindexing() ? 'Reindexando…' : 'Reindexar agora' }}
+              </button>
+            </div>
+          }
+        </section>
+
         <div>
           <button matButton="filled" type="submit" [disabled]="saving() || loading()">Salvar</button>
         </div>
@@ -330,6 +415,10 @@ export class Integrations {
     imageApiKey: [''],
     imageModel: [''],
     imageBaseUrl: [''],
+    embeddingProvider: ['' as '' | EmbeddingProvider],
+    embeddingApiKey: [''],
+    embeddingModel: [''],
+    embeddingBaseUrl: [''],
   });
 
   private readonly providerValue = toSignal(this.form.controls.provider.valueChanges, {
@@ -345,6 +434,21 @@ export class Integrations {
     const provider = this.imageProviderValue();
     return this.settings()?.imageProviders.find((p) => p.id === provider) ?? null;
   });
+
+  private readonly embeddingProviderValue = toSignal(
+    this.form.controls.embeddingProvider.valueChanges,
+    { initialValue: '' as '' | EmbeddingProvider },
+  );
+
+  /** Metadados (defaults) do provedor de embeddings selecionado no formulário. */
+  protected readonly selectedEmbeddingProvider = computed<EmbeddingProviderInfo | null>(() => {
+    const provider = this.embeddingProviderValue();
+    return this.settings()?.embeddingProviders.find((p) => p.id === provider) ?? null;
+  });
+
+  // --- Memória de publicações (RAG) ---
+  protected readonly memory = signal<AuthorMemoryStatus | null>(null);
+  protected readonly reindexing = signal(false);
 
   /** Metadados (defaults) do provedor selecionado no formulário. */
   protected readonly selectedProvider = computed<AiProviderInfo | null>(() => {
@@ -372,6 +476,10 @@ export class Integrations {
     });
     this.social.linkedInStatus().subscribe({
       next: (status) => this.linkedIn.set(status),
+      error: () => undefined,
+    });
+    this.assistant.memoryStatus().subscribe({
+      next: (status) => this.memory.set(status),
       error: () => undefined,
     });
     // Retorno do fluxo OAuth (?linkedin=connected|error).
@@ -469,6 +577,10 @@ export class Integrations {
       imageApiKey: raw.imageApiKey.trim() || undefined,
       imageModel: raw.imageModel.trim() ? raw.imageModel.trim() : '',
       imageBaseUrl: raw.imageBaseUrl.trim() ? raw.imageBaseUrl.trim() : '',
+      embeddingProvider: raw.embeddingProvider || undefined,
+      embeddingApiKey: raw.embeddingApiKey.trim() || undefined,
+      embeddingModel: raw.embeddingModel.trim() ? raw.embeddingModel.trim() : '',
+      embeddingBaseUrl: raw.embeddingBaseUrl.trim() ? raw.embeddingBaseUrl.trim() : '',
     });
   }
 
@@ -484,6 +596,27 @@ export class Integrations {
     this.apply({ imageApiKey: '' });
   }
 
+  protected clearEmbeddingKey(): void {
+    this.apply({ embeddingApiKey: '' });
+  }
+
+  protected reindexMemory(): void {
+    if (this.reindexing()) {
+      return;
+    }
+    this.reindexing.set(true);
+    this.assistant.reindexMemory().subscribe({
+      next: (status) => {
+        this.memory.set(status);
+        this.reindexing.set(false);
+      },
+      error: (err: { error?: { detail?: string } }) => {
+        this.reindexing.set(false);
+        this.error.set(err?.error?.detail ?? 'Falha ao reindexar a memória.');
+      },
+    });
+  }
+
   private apply(request: {
     provider?: AiProvider;
     apiKey?: string;
@@ -494,6 +627,10 @@ export class Integrations {
     imageApiKey?: string;
     imageModel?: string;
     imageBaseUrl?: string;
+    embeddingProvider?: EmbeddingProvider;
+    embeddingApiKey?: string;
+    embeddingModel?: string;
+    embeddingBaseUrl?: string;
   }): void {
     this.saving.set(true);
     this.saved.set(false);
@@ -529,6 +666,10 @@ export class Integrations {
       imageApiKey: '',
       imageModel: settings.imageModel ?? '',
       imageBaseUrl: settings.imageBaseUrl ?? '',
+      embeddingProvider: settings.embeddingProvider ?? '',
+      embeddingApiKey: '',
+      embeddingModel: settings.embeddingModel ?? '',
+      embeddingBaseUrl: settings.embeddingBaseUrl ?? '',
     });
     this.loading.set(false);
   }

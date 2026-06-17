@@ -18,6 +18,7 @@ internal class AssistantService(
     fun generateDraft(
         theme: String,
         instructions: String? = null,
+        authorVoice: String? = null,
     ): DraftResponse {
         val cleaned = theme.trim()
         if (cleaned.isBlank()) {
@@ -37,6 +38,7 @@ internal class AssistantService(
                     append("Instruções do autor (siga-as, respeitando os limites e o formato de saída):\n")
                     append(customPrompt).append("\n\n")
                 }
+                appendAuthorVoice(authorVoice)
                 if (context.isNotBlank()) {
                     append("Contexto encontrado na web (use como base, cite quando relevante):\n")
                     append(context).append("\n\n")
@@ -68,10 +70,15 @@ internal class AssistantService(
         return CorrectionResponse(stripCodeFence(raw.trim()))
     }
 
-    /** Gera uma "isca" para LinkedIn (RF04/estratégia de distribuição): gancho + CTA de volta ao portal. */
-    fun generateSnippet(
+    /**
+     * Adapta um conteúdo para um post **nativo** do LinkedIn, respeitando o limite de caracteres
+     * (≈3000) — formato distinto do artigo do portal. Usado sobretudo no modelo flexível, em que o
+     * conteúdo vai inteiro para o LinkedIn.
+     */
+    fun formatForLinkedIn(
         title: String,
         content: String,
+        authorVoice: String? = null,
     ): SnippetResponse {
         if (title.isBlank() && content.isBlank()) {
             throw InvalidRequestException("Informe o título ou o conteúdo da postagem")
@@ -79,9 +86,40 @@ internal class AssistantService(
         val user =
             buildString {
                 append("Título: ").append(title.trim()).append("\n\n")
+                appendAuthorVoice(authorVoice)
+                append("Conteúdo:\n").append(content.trim())
+            }
+        val text = llm.complete(LINKEDIN_FORMAT_SYSTEM, user, maxTokens = 1500).trim()
+        return SnippetResponse(text.take(LINKEDIN_MAX_CHARS))
+    }
+
+    /** Gera uma "isca" para LinkedIn (RF04/estratégia de distribuição): gancho + CTA de volta ao portal. */
+    fun generateSnippet(
+        title: String,
+        content: String,
+        authorVoice: String? = null,
+    ): SnippetResponse {
+        if (title.isBlank() && content.isBlank()) {
+            throw InvalidRequestException("Informe o título ou o conteúdo da postagem")
+        }
+        val user =
+            buildString {
+                append("Título: ").append(title.trim()).append("\n\n")
+                appendAuthorVoice(authorVoice)
                 append("Conteúdo:\n").append(content.trim())
             }
         return SnippetResponse(llm.complete(SNIPPET_SYSTEM, user, maxTokens = 512))
+    }
+
+    /** Injeta a memória do autor (trechos de publicações) como referência de tom/abordagem. */
+    private fun StringBuilder.appendAuthorVoice(authorVoice: String?) {
+        authorVoice?.trim()?.takeIf { it.isNotBlank() }?.let {
+            append(
+                "Estilo do autor — escreva no MESMO tom, voz e abordagem destes trechos das " +
+                    "publicações dele (use como referência de estilo, não copie o conteúdo):\n",
+            )
+            append(it).append("\n\n")
+        }
     }
 
     /**
@@ -216,6 +254,19 @@ internal class AssistantService(
                 "recebido, preservando o conteúdo, o tom e TODA a formatação Markdown (títulos, listas, " +
                 "código, links, imagens). Responda APENAS com o texto corrigido, sem comentários nem " +
                 "cercas de código envolvendo a resposta."
+
+        /** Limite de caracteres do comentário de um post no LinkedIn. */
+        const val LINKEDIN_MAX_CHARS = 3000
+
+        const val LINKEDIN_FORMAT_SYSTEM =
+            "Você adapta um conteúdo para um post NATIVO do LinkedIn (não é um artigo do portal). " +
+                "Escreva no idioma do conteúdo (padrão: português): um gancho forte na primeira " +
+                "linha, parágrafos curtos separados por linhas em branco, e no máximo 3 hashtags " +
+                "pertinentes ao final. NÃO use Markdown — o LinkedIn mostra como texto puro " +
+                "(nada de #, *, [texto](link); escreva URLs por extenso). O texto DEVE caber em " +
+                "3000 caracteres (limite do LinkedIn), então seja conciso e priorize o essencial. " +
+                "Não invente dados nem prometa o que o conteúdo não entrega. Responda apenas com o " +
+                "texto do post, sem aspas nem comentários."
         const val SNIPPET_SYSTEM =
             "Você cria 'iscas de conteúdo' para o LinkedIn a partir de uma publicação técnica. Escreva um " +
                 "texto curto e envolvente em português (gancho na 1ª linha, 2 a 3 linhas de valor e um " +

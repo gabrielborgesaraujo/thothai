@@ -2,6 +2,7 @@ package com.gabrielaraujo.thothai.social
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.gabrielaraujo.thothai.shared.ExternalServiceException
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
@@ -51,6 +52,8 @@ internal class RestLinkedInApi(
     @param:Qualifier("socialRestClient")
     private val restClient: RestClient,
 ) : LinkedInApi {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     override fun exchangeCode(
         clientId: String,
         clientSecret: String,
@@ -100,48 +103,70 @@ internal class RestLinkedInApi(
             throw ExternalServiceException("Falha ao consultar a identidade no LinkedIn", ex)
         }
 
+    /**
+     * Publica via **Posts API** atual (`/rest/posts`), que substitui o legado `/v2/ugcPosts`.
+     * Exige os headers `LinkedIn-Version` e `X-Restli-Protocol-Version`. Quando há link, ele é
+     * anexado ao texto (o LinkedIn gera o cartão de pré-visualização a partir da URL no comentário).
+     * O id do post criado volta no header `x-restli-id` (201), não no corpo. Em erro, o status e o
+     * corpo do LinkedIn são logados e propagados — diagnóstico que faltava no fluxo antigo.
+     */
     override fun share(
         accessToken: String,
         memberUrn: String,
         text: String,
         articleUrl: String?,
     ): String {
-        val shareContent =
-            buildMap<String, Any> {
-                put("shareCommentary", mapOf("text" to text))
-                if (articleUrl != null) {
-                    put("shareMediaCategory", "ARTICLE")
-                    put("media", listOf(mapOf("status" to "READY", "originalUrl" to articleUrl)))
-                } else {
-                    put("shareMediaCategory", "NONE")
-                }
-            }
+        val commentary =
+            if (articleUrl != null && !text.contains(articleUrl)) "$text\n\n$articleUrl" else text
         val payload =
             mapOf(
                 "author" to memberUrn,
+                "commentary" to commentary,
+                "visibility" to "PUBLIC",
+                "distribution" to
+                    mapOf(
+                        "feedDistribution" to "MAIN_FEED",
+                        "targetEntities" to emptyList<Any>(),
+                        "thirdPartyDistributionChannels" to emptyList<Any>(),
+                    ),
                 "lifecycleState" to "PUBLISHED",
-                "specificContent" to mapOf("com.linkedin.ugc.ShareContent" to shareContent),
-                "visibility" to mapOf("com.linkedin.ugc.MemberNetworkVisibility" to "PUBLIC"),
+                "isReshareDisabledByAuthor" to false,
             )
         return try {
-            val response =
-                restClient
-                    .post()
-                    .uri("https://api.linkedin.com/v2/ugcPosts")
-                    .header("Authorization", "Bearer $accessToken")
-                    .header("X-Restli-Protocol-Version", "2.0.0")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(payload)
-                    .retrieve()
-                    .body<UgcPostResponse>()
-            response?.id ?: throw IllegalStateException("Id ausente na resposta do LinkedIn")
+            restClient
+                .post()
+                .uri("https://api.linkedin.com/rest/posts")
+                .header("Authorization", "Bearer $accessToken")
+                .header("LinkedIn-Version", LINKEDIN_API_VERSION)
+                .header("X-Restli-Protocol-Version", "2.0.0")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(payload)
+                .exchange { _, response ->
+                    if (response.statusCode.is2xxSuccessful) {
+                        response.headers.getFirst("x-restli-id")
+                            ?: throw IllegalStateException("Id ausente na resposta do LinkedIn")
+                    } else {
+                        val body = runCatching { response.bodyTo(String::class.java) }.getOrNull()
+                        log.error("Publicação no LinkedIn falhou: status={} body={}", response.statusCode, body)
+                        throw ExternalServiceException(
+                            "LinkedIn recusou a publicação (HTTP ${response.statusCode.value()})" +
+                                (body?.takeIf { it.isNotBlank() }?.let { ": ${it.take(300)}" } ?: ""),
+                        )
+                    }
+                }
+        } catch (ex: ExternalServiceException) {
+            throw ex
         } catch (ex: Exception) {
-            throw ExternalServiceException("Falha ao publicar no LinkedIn", ex)
+            log.error("Falha de comunicação ao publicar no LinkedIn", ex)
+            throw ExternalServiceException("Falha ao publicar no LinkedIn: ${ex.message}", ex)
         }
     }
 
     private companion object {
         const val DEFAULT_TOKEN_TTL_SECONDS = 60L * 60 * 24 * 60
+
+        /** Versão da API do LinkedIn (mensal, AAAAMM) exigida nos headers da Posts API. */
+        const val LINKEDIN_API_VERSION = "202505"
     }
 }
 
@@ -158,8 +183,4 @@ internal data class UserInfoResponse(
     val email: String? = null,
     @param:JsonProperty("email_verified")
     val emailVerified: Boolean? = null,
-)
-
-internal data class UgcPostResponse(
-    val id: String? = null,
 )

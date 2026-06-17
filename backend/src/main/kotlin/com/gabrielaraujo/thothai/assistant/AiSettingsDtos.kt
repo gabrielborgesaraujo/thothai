@@ -33,6 +33,14 @@ data class AiSettingsRequest(
     val imageModel: String? = null,
     @field:Size(max = 512)
     val imageBaseUrl: String? = null,
+    /** Embeddings (memória do autor). Trocar [embeddingProvider] zera chave/modelo/base URL. */
+    val embeddingProvider: EmbeddingProvider? = null,
+    @field:Size(max = 255)
+    val embeddingApiKey: String? = null,
+    @field:Size(max = 128)
+    val embeddingModel: String? = null,
+    @field:Size(max = 512)
+    val embeddingBaseUrl: String? = null,
 )
 
 /** Item do catálogo de provedores de imagem exibido no painel. */
@@ -41,6 +49,15 @@ data class ImageProviderInfo(
     val label: String,
     val defaultModel: String,
     val defaultBaseUrl: String,
+)
+
+/** Item do catálogo de provedores de embeddings exibido no painel. */
+data class EmbeddingProviderInfo(
+    val id: EmbeddingProvider,
+    val label: String,
+    val defaultModel: String,
+    val defaultBaseUrl: String,
+    val requiresBaseUrl: Boolean,
 )
 
 /** Item do catálogo de provedores exibido no painel. */
@@ -73,4 +90,10 @@ data class AiSettingsResponse(
     val imageModel: String?,
     val imageBaseUrl: String?,
     val imageProviders: List<ImageProviderInfo>,
+    /** Embeddings (memória do autor / RAG). */
+    val embeddingProvider: EmbeddingProvider?,
+    val embeddingKeyHint: String?,
+    val embeddingModel: String?,
+    val embeddingBaseUrl: String?,
+    val embeddingProviders: List<EmbeddingProviderInfo>,
 )

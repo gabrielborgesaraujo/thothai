@@ -33,6 +33,13 @@ internal class AiSettingsService(
         val baseUrl: String,
     )
 
+    /** Configuração efetiva de embeddings (memória do autor); nula quando não configurada. */
+    internal data class ResolvedEmbedding(
+        val apiKey: String,
+        val model: String,
+        val baseUrl: String,
+    )
+
     @Transactional(readOnly = true)
     fun get(): AiSettingsResponse = toResponse(find())
 
@@ -64,6 +71,17 @@ internal class AiSettingsService(
         request.imageModel?.let { settings.imageModel = it.trim().ifBlank { null } }
         request.imageBaseUrl?.let { settings.imageBaseUrl = it.trim().trimEnd('/').ifBlank { null } }
 
+        // Embeddings (memória do autor): trocar de provedor descarta chave/modelo/base URL anteriores.
+        if (request.embeddingProvider != null && request.embeddingProvider != settings.embeddingProvider) {
+            settings.embeddingProvider = request.embeddingProvider
+            settings.embeddingApiKey = null
+            settings.embeddingModel = null
+            settings.embeddingBaseUrl = null
+        }
+        request.embeddingApiKey?.let { settings.embeddingApiKey = it.trim().ifBlank { null } }
+        request.embeddingModel?.let { settings.embeddingModel = it.trim().ifBlank { null } }
+        request.embeddingBaseUrl?.let { settings.embeddingBaseUrl = it.trim().trimEnd('/').ifBlank { null } }
+
         val provider = settings.provider ?: AiProvider.ANTHROPIC
         if (provider.requiresBaseUrl && settings.baseUrl == null) {
             throw InvalidRequestException("Informe a base URL da API OpenAI-compatível")
@@ -87,6 +105,23 @@ internal class AiSettingsService(
     /** Chave efetiva do Tavily (banco > ambiente do sistema); em branco, a busca viva é desativada. */
     @Transactional(readOnly = true)
     fun resolveTavilyKey(): String = find()?.tavilyApiKey ?: envTavilyKey()
+
+    /** Config efetiva de embeddings, ou null quando o publicador não configurou (memória desligada). */
+    @Transactional(readOnly = true)
+    fun resolveEmbedding(): ResolvedEmbedding? {
+        val settings = find() ?: return null
+        val provider = settings.embeddingProvider ?: return null
+        val apiKey = settings.embeddingApiKey?.takeIf { it.isNotBlank() } ?: return null
+        val baseUrl = settings.embeddingBaseUrl?.takeIf { it.isNotBlank() } ?: provider.defaultBaseUrl
+        if (baseUrl.isBlank()) {
+            return null
+        }
+        return ResolvedEmbedding(
+            apiKey = apiKey,
+            model = settings.embeddingModel?.takeIf { it.isNotBlank() } ?: provider.defaultModel,
+            baseUrl = baseUrl,
+        )
+    }
 
     /**
      * Configuração efetiva de geração de imagem. Sem provedor/chave dedicados, lança erro amigável
@@ -171,6 +206,20 @@ internal class AiSettingsService(
                         label = it.label,
                         defaultModel = it.defaultModel,
                         defaultBaseUrl = it.defaultBaseUrl,
+                    )
+                },
+            embeddingProvider = settings?.embeddingProvider,
+            embeddingKeyHint = settings?.embeddingApiKey?.let(::keyHint),
+            embeddingModel = settings?.embeddingModel,
+            embeddingBaseUrl = settings?.embeddingBaseUrl,
+            embeddingProviders =
+                EmbeddingProvider.entries.map {
+                    EmbeddingProviderInfo(
+                        id = it,
+                        label = it.label,
+                        defaultModel = it.defaultModel,
+                        defaultBaseUrl = it.defaultBaseUrl,
+                        requiresBaseUrl = it.requiresBaseUrl,
                     )
                 },
         )

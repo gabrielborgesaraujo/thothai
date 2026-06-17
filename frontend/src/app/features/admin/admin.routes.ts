@@ -34,6 +34,11 @@ export const adminRoutes: Routes = [
         path: 'integrations',
         loadComponent: () => import('./integrations/integrations').then((m) => m.Integrations),
       },
+      // Histórico de prompts de IA (favoritos + filtros).
+      {
+        path: 'prompts',
+        loadComponent: () => import('./prompts/prompt-history').then((m) => m.PromptHistory),
+      },
       // Conta do admin (troca de senha — RF01).
       {
         path: 'account',

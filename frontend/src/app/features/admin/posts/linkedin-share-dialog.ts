@@ -76,7 +76,7 @@ import { AuthService } from '../../../core/auth/auth.service';
           <textarea
             [(ngModel)]="text"
             rows="7"
-            maxlength="2900"
+            maxlength="3000"
             aria-label="Texto da publicação no LinkedIn"
             class="w-full rounded-lg border border-gray-300 bg-white p-3 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 focus:outline-none dark:border-gray-700 dark:bg-gray-950"
           ></textarea>
@@ -88,9 +88,16 @@ import { AuthService } from '../../../core/auth/auth.service';
                 Gerar isca com IA
               </button>
             } @else {
-              <span></span>
+              <button matButton type="button" (click)="adaptForLinkedIn()" [disabled]="generating()">
+                <mat-icon>auto_awesome</mat-icon>
+                Adaptar para o LinkedIn
+              </button>
             }
-            <span class="text-xs text-gray-400 dark:text-gray-500">{{ text().length }}/2900</span>
+            <span
+              class="text-xs"
+              [class]="text().length > 3000 ? 'font-medium text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'"
+              >{{ text().length }}/3000</span
+            >
           </div>
 
           @if (generating() || publishing()) {
@@ -190,6 +197,33 @@ export class LinkedInShareDialog {
           },
           error: () => {
             this.error.set('Não foi possível gerar a isca (IA indisponível).');
+            this.generating.set(false);
+          },
+        });
+      },
+      error: () => {
+        this.error.set('Falha ao carregar a postagem.');
+        this.generating.set(false);
+      },
+    });
+  }
+
+  /** Busca o corpo completo e pede à IA um post nativo do LinkedIn dentro do limite (modelo flexível). */
+  protected adaptForLinkedIn(): void {
+    if (this.generating()) {
+      return;
+    }
+    this.generating.set(true);
+    this.error.set(null);
+    this.posts.getAdmin(this.post().id).subscribe({
+      next: (full) => {
+        this.assistant.formatForLinkedIn(full.title, full.body).subscribe({
+          next: (res) => {
+            this.text.set(res.text);
+            this.generating.set(false);
+          },
+          error: () => {
+            this.error.set('Não foi possível adaptar o texto (IA indisponível).');
             this.generating.set(false);
           },
         });

@@ -150,6 +150,8 @@ internal interface PostRepository : JpaRepository<Post, UUID> {
         slug: String,
     ): Boolean
 
+    fun findByTenantId(tenantId: String): List<Post>
+
     fun countByTenantId(tenantId: String): Long
 
     fun countByTenantIdAndStatus(
