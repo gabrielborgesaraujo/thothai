@@ -26,6 +26,34 @@ internal class UserManagementService(
     /** Criação pelo administrador do sistema: nasce ATIVO. */
     fun createByAdmin(request: RegisterRequest): UserAccount = create(request, UserStatus.ACTIVE)
 
+    /**
+     * Cria uma conta PENDENTE a partir de uma identidade do LinkedIn (login sem conta prévia):
+     * username/handle derivados do nome (ou do e-mail), senha aleatória — o acesso é pelo LinkedIn
+     * após a aprovação do administrador. O `sub` do LinkedIn já fica vinculado.
+     */
+    fun createFromLinkedIn(
+        name: String?,
+        email: String?,
+        linkedinSub: String,
+    ): UserAccount {
+        val cleanedEmail = email?.trim()?.lowercase()?.takeIf { it.isNotBlank() }
+        val base = slugify(name ?: cleanedEmail?.substringBefore('@') ?: "membro")
+        val handle = uniqueHandle(base)
+        return TenantContext.runAs(handle) {
+            users.save(
+                UserAccount(
+                    username = uniqueUsername(base),
+                    passwordHash = requireNotNull(passwordEncoder.encode(UUID.randomUUID().toString())),
+                    handle = handle,
+                    email = cleanedEmail,
+                    role = UserRole.PUBLISHER,
+                    status = UserStatus.PENDING,
+                    linkedinSub = linkedinSub,
+                ),
+            )
+        }
+    }
+
     @Transactional(readOnly = true)
     fun list(): List<UserAccount> = users.findAllByOrderByCreatedAtDesc()
 
@@ -86,6 +114,38 @@ internal class UserManagementService(
                 ),
             )
         }
+    }
+
+    /** Normaliza um texto livre para o formato de handle/username (minúsculas, sem acento, hífen). */
+    private fun slugify(value: String): String {
+        val slug =
+            java.text.Normalizer
+                .normalize(value, java.text.Normalizer.Form.NFD)
+                .replace(Regex("\\p{M}+"), "")
+                .lowercase()
+                .replace(Regex("[^a-z0-9]+"), "-")
+                .trim('-')
+                .take(30)
+        return slug.padEnd(3, 'x').takeIf { it.length >= 3 && it !in RESERVED_HANDLES } ?: "membro"
+    }
+
+    /** Handle único e válido a partir de uma base, sufixando -2, -3… em caso de colisão/reserva. */
+    private fun uniqueHandle(base: String): String = unique(base) { !users.existsByHandle(it) && it !in RESERVED_HANDLES }
+
+    private fun uniqueUsername(base: String): String = unique(base) { !users.existsByUsername(it) }
+
+    private inline fun unique(
+        base: String,
+        available: (String) -> Boolean,
+    ): String {
+        if (available(base)) {
+            return base
+        }
+        var suffix = 2
+        while (!available("${base.take(27)}-$suffix")) {
+            suffix++
+        }
+        return "${base.take(27)}-$suffix"
     }
 
     private companion object {

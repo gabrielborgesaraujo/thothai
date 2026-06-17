@@ -11,6 +11,10 @@ internal interface UserAccountRepository : JpaRepository<UserAccount, UUID> {
 
     fun findByEmail(email: String): UserAccount?
 
+    fun findByLinkedinSub(linkedinSub: String): UserAccount?
+
+    fun existsByLinkedinSub(linkedinSub: String): Boolean
+
     fun existsByUsername(username: String): Boolean
 
     fun existsByHandle(handle: String): Boolean

@@ -33,7 +33,14 @@ internal class AccountService(
     private fun find(username: String): UserAccount =
         users.findByUsername(username) ?: throw ResourceNotFoundException("Usuário não encontrado")
 
-    private fun UserAccount.toInfo() = AccountInfoResponse(username = username, handle = handle, role = role, email = email)
+    private fun UserAccount.toInfo() =
+        AccountInfoResponse(
+            username = username,
+            handle = handle,
+            role = role,
+            email = email,
+            linkedinLinked = linkedinSub != null,
+        )
 
     fun changePassword(
         username: String,

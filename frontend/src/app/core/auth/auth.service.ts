@@ -59,6 +59,26 @@ export class AuthService {
     return this.api.post<void>('/auth/password-reset/confirm', { token, newPassword });
   }
 
+  /** URL de autorização para ENTRAR com o LinkedIn (fluxo OAuth não autenticado). */
+  linkedInLoginUrl(): Observable<{ url: string }> {
+    return this.api.get<{ url: string }>('/auth/linkedin/authorize-url');
+  }
+
+  /** Confirma o vínculo da conta com o LinkedIn pelo token recebido por e-mail. */
+  confirmLinkedInLink(token: string): Observable<void> {
+    return this.api.post<void>('/auth/linkedin/link/confirm', { token });
+  }
+
+  /** URL de autorização para VINCULAR o LinkedIn à conta logada (painel). */
+  linkedInLinkUrl(): Observable<{ url: string }> {
+    return this.api.get<{ url: string }>('/admin/account/linkedin/authorize-url');
+  }
+
+  /** Desfaz o vínculo da conta logada com o LinkedIn. */
+  unlinkLinkedIn(): Observable<AccountInfo> {
+    return this.api.delete<AccountInfo>('/admin/account/linkedin');
+  }
+
   /** Confirma a sessão no servidor; usado pelo guard. Retorna null se não autenticado. */
   fetchSession(): Observable<AuthUser | null> {
     return this.api.get<AuthUser>('/auth/me').pipe(

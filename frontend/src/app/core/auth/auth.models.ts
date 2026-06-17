@@ -22,4 +22,6 @@ export interface AccountInfo {
   handle: string;
   role: UserRole;
   email: string | null;
+  /** A conta já está vinculada a uma identidade do LinkedIn? */
+  linkedinLinked: boolean;
 }

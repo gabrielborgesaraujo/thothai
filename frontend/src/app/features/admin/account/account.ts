@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DOCUMENT, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
@@ -64,6 +65,39 @@ import { ToastService } from '../../../core/toast/toast.service';
         </form>
       </section>
 
+      <!-- Vínculo com o LinkedIn -->
+      <section class="mb-8 rounded-xl border border-gray-200 p-5 dark:border-gray-800">
+        <h2 class="mb-3 inline-flex items-center gap-2 font-medium">
+          <mat-icon class="text-indigo-500">link</mat-icon>
+          Login com LinkedIn
+        </h2>
+        @if (info(); as account) {
+          @if (account.linkedinLinked) {
+            <p class="mb-3 text-sm text-gray-600 dark:text-gray-300">
+              Sua conta está <strong>vinculada</strong> ao LinkedIn — você pode entrar com ele.
+            </p>
+            <button matButton type="button" (click)="unlinkLinkedIn()" [disabled]="linkedInBusy()">
+              <mat-icon>link_off</mat-icon>
+              Desvincular LinkedIn
+            </button>
+          } @else {
+            <p class="mb-3 text-sm text-gray-500 dark:text-gray-400">
+              Vincule sua conta para entrar com o LinkedIn. Enviaremos um e-mail de confirmação para
+              <strong>{{ account.email ?? 'seu e-mail de cadastro' }}</strong> antes de ativar o vínculo.
+            </p>
+            <button matButton="filled" type="button" (click)="linkLinkedIn()" [disabled]="linkedInBusy() || !account.email">
+              <mat-icon>link</mat-icon>
+              Vincular minha conta
+            </button>
+            @if (!account.email) {
+              <p class="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                Cadastre um e-mail acima antes de vincular o LinkedIn.
+              </p>
+            }
+          }
+        }
+      </section>
+
       <!-- Troca de senha -->
       <section class="rounded-xl border border-gray-200 p-5 dark:border-gray-800">
         <h2 class="mb-3 inline-flex items-center gap-2 font-medium">
@@ -107,9 +141,11 @@ export class Account {
   private readonly fb = inject(NonNullableFormBuilder);
   private readonly auth = inject(AuthService);
   private readonly toast = inject(ToastService);
+  private readonly document = inject(DOCUMENT);
 
   protected readonly loading = signal(false);
   protected readonly savingEmail = signal(false);
+  protected readonly linkedInBusy = signal(false);
   protected readonly info = signal<AccountInfo | null>(null);
 
   protected readonly emailForm = this.fb.group({
@@ -129,6 +165,46 @@ export class Account {
         this.emailForm.patchValue({ email: account.email ?? '' });
       },
       error: () => this.toast.error('Falha ao carregar os dados da conta.'),
+    });
+    // Retorno do fluxo de vínculo com LinkedIn (?linkedin=verify|error).
+    const result = inject(ActivatedRoute).snapshot.queryParamMap.get('linkedin');
+    if (result === 'verify') {
+      this.toast.success('Enviamos um e-mail para confirmar o vínculo com o LinkedIn.');
+    } else if (result === 'error') {
+      this.toast.error('Não foi possível iniciar o vínculo com o LinkedIn.');
+    }
+  }
+
+  /** Inicia o vínculo: redireciona para a autorização OAuth (a confirmação é por e-mail). */
+  protected linkLinkedIn(): void {
+    if (this.linkedInBusy()) {
+      return;
+    }
+    this.linkedInBusy.set(true);
+    this.auth.linkedInLinkUrl().subscribe({
+      next: ({ url }) => (this.document.location.href = url),
+      error: () => {
+        this.linkedInBusy.set(false);
+        this.toast.error('Vínculo com LinkedIn indisponível — verifique a configuração com o administrador.');
+      },
+    });
+  }
+
+  protected unlinkLinkedIn(): void {
+    if (this.linkedInBusy()) {
+      return;
+    }
+    this.linkedInBusy.set(true);
+    this.auth.unlinkLinkedIn().subscribe({
+      next: (account) => {
+        this.info.set(account);
+        this.linkedInBusy.set(false);
+        this.toast.success('LinkedIn desvinculado.');
+      },
+      error: () => {
+        this.linkedInBusy.set(false);
+        this.toast.error('Falha ao desvincular o LinkedIn.');
+      },
     });
   }
 

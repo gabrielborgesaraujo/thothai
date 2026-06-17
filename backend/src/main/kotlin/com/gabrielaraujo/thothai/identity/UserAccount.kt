@@ -41,6 +41,9 @@ class UserAccount(
     /** E-mail de cadastro (destino do link de redefinição de senha). */
     @Column(name = "email", length = 255)
     var email: String? = null,
+    /** Identidade do LinkedIn (sub do OIDC) vinculada à conta; habilita o login com LinkedIn. */
+    @Column(name = "linkedin_sub", length = 64)
+    var linkedinSub: String? = null,
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 32)
     var role: UserRole = UserRole.PUBLISHER,

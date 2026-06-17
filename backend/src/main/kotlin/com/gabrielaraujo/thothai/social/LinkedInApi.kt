@@ -19,6 +19,8 @@ internal data class LinkedInToken(
 internal data class LinkedInMember(
     val id: String,
     val name: String?,
+    val email: String? = null,
+    val emailVerified: Boolean = false,
 )
 
 /**
@@ -93,7 +95,7 @@ internal class RestLinkedInApi(
             if (id.isNullOrBlank()) {
                 throw IllegalStateException("Identidade ausente na resposta do LinkedIn")
             }
-            LinkedInMember(id, info.name)
+            LinkedInMember(id, info.name, info.email?.lowercase()?.trim(), info.emailVerified ?: false)
         } catch (ex: Exception) {
             throw ExternalServiceException("Falha ao consultar a identidade no LinkedIn", ex)
         }
@@ -153,6 +155,9 @@ internal data class TokenResponse(
 internal data class UserInfoResponse(
     val sub: String? = null,
     val name: String? = null,
+    val email: String? = null,
+    @param:JsonProperty("email_verified")
+    val emailVerified: Boolean? = null,
 )
 
 internal data class UgcPostResponse(

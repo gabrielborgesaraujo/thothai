@@ -94,7 +94,10 @@ internal class SecurityConfig {
                         "/api/auth/register",
                         "/api/auth/password-reset/request",
                         "/api/auth/password-reset/confirm",
+                        "/api/auth/linkedin/link/confirm",
                     ).permitAll()
+                // Login com LinkedIn (URL de autorização + callback OAuth) — fluxo não autenticado.
+                auth.requestMatchers(HttpMethod.GET, "/api/auth/linkedin/authorize-url", "/api/auth/linkedin/callback").permitAll()
                 auth.requestMatchers(HttpMethod.POST, "/api/metrics/views").permitAll()
                 // Portal público por publicador (/api/p/{handle}/…) e diretório da plataforma.
                 auth.requestMatchers(HttpMethod.GET, "/api/p/**", "/api/publishers").permitAll()

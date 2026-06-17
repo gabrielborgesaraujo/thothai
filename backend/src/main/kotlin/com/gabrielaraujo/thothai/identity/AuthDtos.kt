@@ -50,6 +50,8 @@ data class AccountInfoResponse(
     val handle: String,
     val role: UserRole,
     val email: String?,
+    /** A conta já está vinculada a uma identidade do LinkedIn? */
+    val linkedinLinked: Boolean,
 )
 
 /** Atualização dos dados da conta. */

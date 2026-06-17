@@ -25,6 +25,11 @@ export const publicRoutes: Routes = [
         path: 'redefinir-senha',
         loadComponent: () => import('./password/reset-password').then((m) => m.ResetPassword),
       },
+      // Confirmação do vínculo da conta com o LinkedIn (token por e-mail).
+      {
+        path: 'vincular-linkedin',
+        loadComponent: () => import('./linkedin/confirm-link').then((m) => m.ConfirmLinkedInLink),
+      },
       // Páginas do publicador (Fase 2): currículo/identidade e portal de leitura por handle.
       {
         path: ':handle',

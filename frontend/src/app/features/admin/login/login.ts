@@ -1,6 +1,6 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DOCUMENT, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
@@ -87,6 +87,14 @@ import { ThemeToggle } from '../../../core/theme/theme-toggle';
               >Esqueci minha senha</a
             >
 
+            @if (info(); as msg) {
+              <p
+                class="rounded-lg bg-indigo-50 px-3 py-2 text-sm text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300"
+                role="status"
+              >
+                {{ msg }}
+              </p>
+            }
             @if (error()) {
               <p
                 class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300"
@@ -98,6 +106,24 @@ import { ThemeToggle } from '../../../core/theme/theme-toggle';
 
             <button matButton="filled" type="submit" class="mt-2 w-full" [disabled]="loading()">
               {{ loading() ? 'Entrando…' : 'Entrar' }}
+            </button>
+
+            <div class="my-2 flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
+              <span class="h-px flex-1 bg-gray-200 dark:bg-gray-800"></span>
+              ou
+              <span class="h-px flex-1 bg-gray-200 dark:bg-gray-800"></span>
+            </div>
+
+            <button
+              type="button"
+              (click)="loginWithLinkedIn()"
+              [disabled]="linkedInBusy()"
+              class="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0a66c2] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#004182] disabled:opacity-60"
+            >
+              <svg viewBox="0 0 24 24" class="h-4 w-4 fill-current" aria-hidden="true">
+                <path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.13 1.45-2.13 2.94v5.67H9.35V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13zM7.12 20.45H3.55V9h3.57v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.22.79 24 1.77 24h20.45c.98 0 1.78-.78 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z"/>
+              </svg>
+              Entrar com LinkedIn
             </button>
           </form>
         </div>
@@ -124,10 +150,13 @@ export class Login {
   private readonly fb = inject(NonNullableFormBuilder);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly document = inject(DOCUMENT);
 
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly info = signal<string | null>(null);
   protected readonly showPassword = signal(false);
+  protected readonly linkedInBusy = signal(false);
 
   protected readonly form = this.fb.group({
     username: ['', Validators.required],
@@ -138,6 +167,42 @@ export class Login {
     // Materializa o cookie XSRF-TOKEN antes do POST de login: o backend o emite em qualquer
     // requisição, e o Angular precisa lê-lo para enviar o header X-XSRF-TOKEN (senão o POST dá 403).
     this.auth.fetchSession().subscribe();
+    // Mensagens de retorno do fluxo de login com LinkedIn (?linkedin=…).
+    const result = inject(ActivatedRoute).snapshot.queryParamMap.get('linkedin');
+    switch (result) {
+      case 'pending':
+        this.info.set(
+          'Conta criada ou aguardando aprovação do administrador. Você poderá entrar com o LinkedIn assim que for aprovada.',
+        );
+        break;
+      case 'verify':
+        this.info.set(
+          'Enviamos um e-mail para confirmar o vínculo da sua conta com o LinkedIn. Confirme pelo link e entre novamente.',
+        );
+        break;
+      case 'disabled':
+        this.error.set('Sua conta está desativada — fale com o administrador.');
+        break;
+      case 'error':
+        this.error.set('Não foi possível entrar com o LinkedIn. Tente novamente.');
+        break;
+    }
+  }
+
+  /** Inicia o login com LinkedIn: redireciona o navegador para a autorização OAuth. */
+  protected loginWithLinkedIn(): void {
+    if (this.linkedInBusy()) {
+      return;
+    }
+    this.linkedInBusy.set(true);
+    this.error.set(null);
+    this.auth.linkedInLoginUrl().subscribe({
+      next: ({ url }) => (this.document.location.href = url),
+      error: () => {
+        this.linkedInBusy.set(false);
+        this.error.set('Login com LinkedIn indisponível — verifique a configuração com o administrador.');
+      },
+    });
   }
 
   protected submit(): void {
