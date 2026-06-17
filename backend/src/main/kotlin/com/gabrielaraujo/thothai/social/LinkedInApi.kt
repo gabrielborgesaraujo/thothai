@@ -146,11 +146,31 @@ internal class RestLinkedInApi(
                         response.headers.getFirst("x-restli-id")
                             ?: throw IllegalStateException("Id ausente na resposta do LinkedIn")
                     } else {
-                        val body = runCatching { response.bodyTo(String::class.java) }.getOrNull()
-                        log.error("Publicação no LinkedIn falhou: status={} body={}", response.statusCode, body)
+                        // www-authenticate traz o motivo exato em 401 (invalid_token vs insufficient_scope).
+                        val wwwAuth = response.headers.getFirst("www-authenticate")
+                        val body =
+                            runCatching { response.body.readBytes().toString(Charsets.UTF_8) }
+                                .getOrNull()
+                                ?.takeIf { it.isNotBlank() }
+                        log.error(
+                            "Publicação no LinkedIn falhou: status={} wwwAuthenticate={} body={}",
+                            response.statusCode,
+                            wwwAuth,
+                            body,
+                        )
+                        val status = response.statusCode.value()
+                        val reason = wwwAuth?.takeIf { it.isNotBlank() } ?: body
+                        val hint =
+                            if (status == 401) {
+                                " — token inválido/expirado ou sem permissão de publicação. Reconecte " +
+                                    "sua conta em Integrações e confirme que o app tem o produto " +
+                                    "\"Share on LinkedIn\" (escopo w_member_social)."
+                            } else {
+                                ""
+                            }
                         throw ExternalServiceException(
-                            "LinkedIn recusou a publicação (HTTP ${response.statusCode.value()})" +
-                                (body?.takeIf { it.isNotBlank() }?.let { ": ${it.take(300)}" } ?: ""),
+                            "LinkedIn recusou a publicação (HTTP $status)" +
+                                (reason?.let { ": ${it.take(300)}" } ?: "") + hint,
                         )
                     }
                 }
