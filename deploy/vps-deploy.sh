@@ -226,11 +226,17 @@ print_npm_instructions() {
       Integrações e conecta a própria conta do LinkedIn.
     - Integração macro do LinkedIn (admin do sistema): crie um app em
       developers.linkedin.com (produtos "Share on LinkedIn" + "Sign In with
-      LinkedIn using OpenID Connect"), cadastre a redirect URL abaixo e
-      informe as credenciais em Painel → Sistema → Integrações macro:
+      LinkedIn using OpenID Connect"), informe as credenciais em
+      Painel → Sistema → Integrações macro e cadastre AS DUAS redirect URLs
+      abaixo (uma para compartilhar conteúdo, outra para login/vínculo):
           https://$domain/api/admin/social/linkedin/callback
-    - Reset de senha: sem SMTP no .env, o link sai apenas no log do
-      backend (${COMPOSE[*]} logs backend).
+          https://$domain/api/auth/linkedin/callback
+    - Login com LinkedIn: com o app configurado, a tela /admin/login passa a
+      oferecer "Entrar com LinkedIn" e o vínculo de conta (confirmado por
+      e-mail) em Painel → Conta. Exige o escopo de e-mail do produto OpenID
+      Connect — por isso o reset por e-mail/SMTP abaixo também importa.
+    - Reset de senha e confirmação de vínculo do LinkedIn: sem SMTP no .env,
+      o link sai apenas no log do backend (${COMPOSE[*]} logs backend).
 
  Comandos úteis:
     ${COMPOSE[*]} ps

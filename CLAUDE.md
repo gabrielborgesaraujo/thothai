@@ -24,6 +24,24 @@ and own AI/Tavily keys — env-var key fallback only applies to the system tenan
 (`POST /api/auth/register`) creates PENDING accounts that can't log in until approved.
 The site root is a platform landing with the publisher directory (`/api/publishers`).
 
+**Login with LinkedIn / account linking.** Two OAuth flows share the *same* platform LinkedIn
+app (so the dev app needs **both** redirect URIs registered, plus the "Sign In with LinkedIn
+using OpenID Connect" product for the `email` scope): the per-tenant **sharing** flow
+(`/api/admin/social/linkedin/callback`, authenticated, in `social`) and the unauthenticated
+**login/linking** flow (`/api/auth/linkedin/callback`, in `identity`, via the public
+`social.LinkedInOidcGateway`). Login resolves the account by `users.linkedin_sub` (active → session
+established; pending/disabled → message); else by matching email (→ emails a 30-min link-confirm
+token before linking); else auto-creates a PENDING publisher from the LinkedIn profile. Linking is
+**always** confirmed by an email token (`linkedin_link_tokens`, like password reset); the OAuth
+`state` rides in an HttpOnly cookie since there's no session yet.
+
+**Post publishing models.** `posts.mode` is `PLATFORM` (classic: lives on the hub; LinkedIn share =
+AI "isca" + link back) or `FLEXIBLE` (hub optional via `status` — DRAFT = LinkedIn-only/off-hub,
+PUBLISHED = also on hub; LinkedIn share = full body as plain text, no back-link). AI extras:
+per-draft custom prompt, AI image generation with a **dedicated** provider/key in `ai_settings`
+(`image_*` columns; OpenAI gpt-image or Gemini Imagen, stored to MinIO via the public
+`media.MediaImageStore`), and AI review of a selected excerpt.
+
 ## Monorepo layout
 
 - [backend/](backend/) — Kotlin + Spring Boot (Spring Modulith) REST API, PostgreSQL, Flyway.
