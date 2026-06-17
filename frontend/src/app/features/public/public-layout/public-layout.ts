@@ -15,7 +15,7 @@ import { MetricsService } from '../../../core/metrics/metrics.service';
       <header
         class="sticky top-0 z-10 border-b border-gray-200/70 bg-white/85 backdrop-blur dark:border-gray-800/70 dark:bg-gray-950/85"
       >
-        <nav class="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 py-3">
+        <nav class="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-x-2 gap-y-1 px-4 py-3">
           <a routerLink="/" class="text-lg font-bold tracking-tight">
             Thoth<span class="text-indigo-600 dark:text-indigo-400">AI</span>
           </a>

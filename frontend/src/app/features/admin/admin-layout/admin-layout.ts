@@ -1,6 +1,9 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, viewChild } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { map } from 'rxjs';
+import { BreakpointObserver } from '@angular/cdk/layout';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { MatSidenavModule } from '@angular/material/sidenav';
+import { MatSidenav, MatSidenavModule } from '@angular/material/sidenav';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -29,7 +32,11 @@ const SYSTEM_NAV_ITEMS = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <mat-sidenav-container class="h-dvh">
-      <mat-sidenav mode="side" opened class="w-60 border-r border-gray-200 dark:border-gray-800">
+      <mat-sidenav
+        [mode]="isMobile() ? 'over' : 'side'"
+        [opened]="!isMobile()"
+        class="w-64 border-r border-gray-200 dark:border-gray-800"
+      >
         <div class="flex h-full flex-col p-3">
           <a routerLink="/admin" class="px-3 py-4 text-lg font-bold tracking-tight">
             Thoth<span class="text-indigo-600 dark:text-indigo-400">AI</span>
@@ -43,6 +50,7 @@ const SYSTEM_NAV_ITEMS = [
                 [routerLink]="item.path"
                 routerLinkActive="bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300"
                 [routerLinkActiveOptions]="{ exact: item.exact }"
+                (click)="closeOnMobile()"
                 class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
               >
                 <mat-icon class="text-[20px]">{{ item.icon }}</mat-icon>
@@ -57,6 +65,7 @@ const SYSTEM_NAV_ITEMS = [
                 <a
                   [routerLink]="item.path"
                   routerLinkActive="bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300"
+                  (click)="closeOnMobile()"
                   class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
                 >
                   <mat-icon class="text-[20px]">{{ item.icon }}</mat-icon>
@@ -79,15 +88,28 @@ const SYSTEM_NAV_ITEMS = [
       </mat-sidenav>
       <mat-sidenav-content>
         <header
-          class="sticky top-0 z-10 flex items-center justify-end gap-1 border-b border-gray-200 bg-white/85 px-4 py-2 backdrop-blur dark:border-gray-800 dark:bg-gray-950/85"
+          class="sticky top-0 z-10 flex items-center gap-1 border-b border-gray-200 bg-white/85 px-4 py-2 backdrop-blur dark:border-gray-800 dark:bg-gray-950/85"
         >
+          <button
+            matIconButton
+            type="button"
+            class="lg:hidden"
+            (click)="sidenav().toggle()"
+            aria-label="Abrir menu de navegação"
+          >
+            <mat-icon>menu</mat-icon>
+          </button>
+          <span class="ml-1 font-bold tracking-tight lg:hidden">
+            Thoth<span class="text-indigo-600 dark:text-indigo-400">AI</span>
+          </span>
+          <span class="ml-auto"></span>
           <app-theme-toggle />
           <button matButton (click)="logout()">
             <mat-icon>logout</mat-icon>
-            Sair
+            <span class="hidden sm:inline">Sair</span>
           </button>
         </header>
-        <div class="p-6">
+        <div class="p-4 sm:p-6">
           <router-outlet />
         </div>
       </mat-sidenav-content>
@@ -101,6 +123,23 @@ export class AdminLayout {
   protected readonly nav = NAV_ITEMS;
   protected readonly systemNav = SYSTEM_NAV_ITEMS;
   protected readonly isSystemAdmin = computed(() => this.auth.user()?.role === 'SYSTEM_ADMIN');
+
+  protected readonly sidenav = viewChild.required(MatSidenav);
+
+  /** Abaixo do breakpoint lg (1024px) o menu vira gaveta sobreposta (não estática). */
+  protected readonly isMobile = toSignal(
+    inject(BreakpointObserver)
+      .observe('(max-width: 1023.98px)')
+      .pipe(map((result) => result.matches)),
+    { initialValue: false },
+  );
+
+  /** No mobile, fecha a gaveta ao navegar (senão fica cobrindo o conteúdo). */
+  protected closeOnMobile(): void {
+    if (this.isMobile()) {
+      this.sidenav().close();
+    }
+  }
 
   protected logout(): void {
     this.auth.logout().subscribe({

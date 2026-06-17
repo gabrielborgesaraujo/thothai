@@ -166,7 +166,7 @@ internal class RestLinkedInApi(
         const val DEFAULT_TOKEN_TTL_SECONDS = 60L * 60 * 24 * 60
 
         /** Versão da API do LinkedIn (mensal, AAAAMM) exigida nos headers da Posts API. */
-        const val LINKEDIN_API_VERSION = "202505"
+        const val LINKEDIN_API_VERSION = "202606"
     }
 }
 
