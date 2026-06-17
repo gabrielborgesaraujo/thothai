@@ -21,6 +21,24 @@ export interface CorrectionResponse {
   text: string;
 }
 
+/** Imagem gerada por IA e já salva na galeria (retorna a URL pública). */
+export interface ImageResponse {
+  url: string;
+  width: number | null;
+  height: number | null;
+}
+
+/** Provedores de geração de imagem (config dedicada). */
+export type ImageProvider = 'OPENAI' | 'GEMINI';
+
+/** Item do catálogo de provedores de imagem exibido no painel. */
+export interface ImageProviderInfo {
+  id: ImageProvider;
+  label: string;
+  defaultModel: string;
+  defaultBaseUrl: string;
+}
+
 /** Origem efetiva de uma chave de IA. */
 export type AiKeySource = 'CUSTOM' | 'ENVIRONMENT';
 
@@ -48,6 +66,12 @@ export interface AiSettings {
   providers: AiProviderInfo[];
   tavilySource: AiKeySource | null;
   tavilyKeyHint: string | null;
+  /** Geração de imagem (config dedicada). */
+  imageProvider: ImageProvider | null;
+  imageKeyHint: string | null;
+  imageModel: string | null;
+  imageBaseUrl: string | null;
+  imageProviders: ImageProviderInfo[];
 }
 
 /** Atualização parcial: campo `null`/omitido mantém; string vazia limpa. */
@@ -57,4 +81,8 @@ export interface AiSettingsRequest {
   model?: string;
   baseUrl?: string;
   tavilyApiKey?: string;
+  imageProvider?: ImageProvider;
+  imageApiKey?: string;
+  imageModel?: string;
+  imageBaseUrl?: string;
 }

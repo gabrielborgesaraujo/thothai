@@ -27,6 +27,10 @@ class Post(
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 32)
     var type: PostType,
+    /** Modelo de publicação (RF02 / Fase 2): clássico na plataforma ou flexível. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "mode", nullable = false, length = 16)
+    var mode: PostMode = PostMode.PLATFORM,
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 16)
     var status: PostStatus,

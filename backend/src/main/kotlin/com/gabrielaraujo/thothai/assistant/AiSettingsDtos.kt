@@ -25,6 +25,22 @@ data class AiSettingsRequest(
     val baseUrl: String? = null,
     @field:Size(max = 255)
     val tavilyApiKey: String? = null,
+    /** Geração de imagem (dedicada). Trocar [imageProvider] zera chave/modelo/base URL de imagem. */
+    val imageProvider: ImageProvider? = null,
+    @field:Size(max = 255)
+    val imageApiKey: String? = null,
+    @field:Size(max = 128)
+    val imageModel: String? = null,
+    @field:Size(max = 512)
+    val imageBaseUrl: String? = null,
+)
+
+/** Item do catálogo de provedores de imagem exibido no painel. */
+data class ImageProviderInfo(
+    val id: ImageProvider,
+    val label: String,
+    val defaultModel: String,
+    val defaultBaseUrl: String,
 )
 
 /** Item do catálogo de provedores exibido no painel. */
@@ -51,4 +67,10 @@ data class AiSettingsResponse(
     val providers: List<AiProviderInfo>,
     val tavilySource: AiKeySource?,
     val tavilyKeyHint: String?,
+    /** Geração de imagem (config dedicada): provedor escolhido, dica da chave e catálogo. */
+    val imageProvider: ImageProvider?,
+    val imageKeyHint: String?,
+    val imageModel: String?,
+    val imageBaseUrl: String?,
+    val imageProviders: List<ImageProviderInfo>,
 )

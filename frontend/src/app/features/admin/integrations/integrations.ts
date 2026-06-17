@@ -22,6 +22,8 @@ import {
   AiProvider,
   AiProviderInfo,
   AiSettings,
+  ImageProvider,
+  ImageProviderInfo,
 } from '../../../core/assistant/assistant.models';
 import { LinkedInStatus, SocialService } from '../../../core/social/social.service';
 
@@ -177,6 +179,72 @@ import { LinkedInStatus, SocialService } from '../../../core/social/social.servi
           }
         </section>
 
+        <!-- Geração de imagem por IA — configuração dedicada (independente do provedor de texto). -->
+        <section class="rounded-xl border border-gray-200 p-5 dark:border-gray-800">
+          <div class="mb-1 flex items-center justify-between gap-2">
+            <h2 class="inline-flex items-center gap-2 font-medium">
+              <mat-icon class="text-indigo-500">imagesmode</mat-icon>
+              Geração de imagem
+            </h2>
+            <span
+              class="rounded-full px-2.5 py-0.5 text-xs font-medium"
+              [class]="badge(settings()?.imageProvider ? 'CUSTOM' : null).classes"
+              >{{ settings()?.imageProvider ? 'Chave própria' : 'Não configurada' }}</span
+            >
+          </div>
+          <p class="mb-4 text-xs text-gray-500 dark:text-gray-400">
+            Cria imagens por IA para inserir no corpo ou usar como banner (modelo flexível).
+            Independente do provedor de texto.
+            @if (settings()?.imageKeyHint; as hint) {
+              Chave atual: <code class="font-mono">{{ hint }}</code
+              >.
+            }
+          </p>
+
+          <mat-form-field appearance="outline" class="w-full">
+            <mat-label>Provedor de imagem</mat-label>
+            <mat-select formControlName="imageProvider">
+              <mat-option value="">— Não usar —</mat-option>
+              @for (provider of settings()?.imageProviders ?? []; track provider.id) {
+                <mat-option [value]="provider.id">{{ provider.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          @if (form.controls.imageProvider.value) {
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Chave de API</mat-label>
+              <input
+                matInput
+                type="password"
+                formControlName="imageApiKey"
+                autocomplete="off"
+                [placeholder]="settings()?.imageProvider ? 'Deixe em branco para manter a atual' : ''"
+              />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Modelo</mat-label>
+              <input matInput formControlName="imageModel" [placeholder]="selectedImageProvider()?.defaultModel ?? ''" />
+              @if (selectedImageProvider()?.defaultModel) {
+                <mat-hint>Em branco usa o padrão ({{ selectedImageProvider()?.defaultModel }}).</mat-hint>
+              }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Base URL da API (opcional)</mat-label>
+              <input matInput formControlName="imageBaseUrl" [placeholder]="selectedImageProvider()?.defaultBaseUrl ?? ''" />
+            </mat-form-field>
+
+            @if (settings()?.imageProvider) {
+              <button matButton type="button" (click)="clearImageKey()" [disabled]="saving()">
+                <mat-icon>delete</mat-icon>
+                Remover minha chave
+              </button>
+            }
+          }
+        </section>
+
         <div>
           <button matButton="filled" type="submit" [disabled]="saving() || loading()">Salvar</button>
         </div>
@@ -258,10 +326,24 @@ export class Integrations {
     model: [''],
     baseUrl: [''],
     tavilyApiKey: [''],
+    imageProvider: ['' as '' | ImageProvider],
+    imageApiKey: [''],
+    imageModel: [''],
+    imageBaseUrl: [''],
   });
 
   private readonly providerValue = toSignal(this.form.controls.provider.valueChanges, {
     initialValue: 'ANTHROPIC' as AiProvider,
+  });
+
+  private readonly imageProviderValue = toSignal(this.form.controls.imageProvider.valueChanges, {
+    initialValue: '' as '' | ImageProvider,
+  });
+
+  /** Metadados (defaults) do provedor de imagem selecionado no formulário. */
+  protected readonly selectedImageProvider = computed<ImageProviderInfo | null>(() => {
+    const provider = this.imageProviderValue();
+    return this.settings()?.imageProviders.find((p) => p.id === provider) ?? null;
   });
 
   /** Metadados (defaults) do provedor selecionado no formulário. */
@@ -383,6 +465,10 @@ export class Integrations {
       apiKey: raw.apiKey.trim() || undefined,
       model: raw.model.trim() ? raw.model.trim() : '',
       baseUrl: raw.baseUrl.trim() ? raw.baseUrl.trim() : '',
+      imageProvider: raw.imageProvider || undefined,
+      imageApiKey: raw.imageApiKey.trim() || undefined,
+      imageModel: raw.imageModel.trim() ? raw.imageModel.trim() : '',
+      imageBaseUrl: raw.imageBaseUrl.trim() ? raw.imageBaseUrl.trim() : '',
     });
   }
 
@@ -394,12 +480,20 @@ export class Integrations {
     this.apply({ tavilyApiKey: '' });
   }
 
+  protected clearImageKey(): void {
+    this.apply({ imageApiKey: '' });
+  }
+
   private apply(request: {
     provider?: AiProvider;
     apiKey?: string;
     model?: string;
     baseUrl?: string;
     tavilyApiKey?: string;
+    imageProvider?: ImageProvider;
+    imageApiKey?: string;
+    imageModel?: string;
+    imageBaseUrl?: string;
   }): void {
     this.saving.set(true);
     this.saved.set(false);
@@ -431,6 +525,10 @@ export class Integrations {
       model: settings.model ?? '',
       baseUrl: settings.baseUrl ?? '',
       tavilyApiKey: '',
+      imageProvider: settings.imageProvider ?? '',
+      imageApiKey: '',
+      imageModel: settings.imageModel ?? '',
+      imageBaseUrl: settings.imageBaseUrl ?? '',
     });
     this.loading.set(false);
   }

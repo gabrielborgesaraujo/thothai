@@ -12,6 +12,8 @@ data class PostRequest(
     val title: String,
     val type: PostType,
     val status: PostStatus,
+    /** Modelo de publicação; ausente assume o clássico [PostMode.PLATFORM]. */
+    val mode: PostMode = PostMode.PLATFORM,
     @field:Size(max = 500)
     val summary: String?,
     @field:NotBlank
@@ -38,6 +40,7 @@ data class PostResponse(
     val slug: String,
     val type: PostType,
     val status: PostStatus,
+    val mode: PostMode,
     val summary: String?,
     val body: String,
     val bannerUrl: String?,
@@ -55,6 +58,7 @@ data class PostSummaryResponse(
     val slug: String,
     val type: PostType,
     val status: PostStatus,
+    val mode: PostMode,
     val summary: String?,
     val bannerUrl: String?,
     val tags: List<String>,
@@ -131,6 +135,7 @@ internal fun Post.toResponse() =
         slug = slug,
         type = type,
         status = status,
+        mode = mode,
         summary = summary,
         body = body,
         bannerUrl = bannerUrl,
@@ -148,6 +153,7 @@ internal fun Post.toSummary() =
         slug = slug,
         type = type,
         status = status,
+        mode = mode,
         summary = summary,
         bannerUrl = bannerUrl,
         tags = tags.sorted(),

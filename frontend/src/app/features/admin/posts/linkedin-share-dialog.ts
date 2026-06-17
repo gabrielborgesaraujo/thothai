@@ -61,10 +61,17 @@ import { AuthService } from '../../../core/auth/auth.service';
             <button matButton class="mt-3" type="button" (click)="closed.emit()">Fechar</button>
           </div>
         } @else {
-          <p class="text-sm text-gray-500 dark:text-gray-400">
-            "{{ post().title }}" será compartilhado com o link
-            <code class="font-mono text-xs">{{ articleUrl() }}</code> como cartão.
-          </p>
+          @if (post().mode === 'PLATFORM') {
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+              "{{ post().title }}" será compartilhado com o link
+              <code class="font-mono text-xs">{{ articleUrl() }}</code> como cartão.
+            </p>
+          } @else {
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+              Modelo flexível: o conteúdo vai inteiro para o LinkedIn, sem link de retorno ao
+              portal. Revise o texto abaixo antes de publicar.
+            </p>
+          }
 
           <textarea
             [(ngModel)]="text"
@@ -75,10 +82,14 @@ import { AuthService } from '../../../core/auth/auth.service';
           ></textarea>
 
           <div class="flex items-center justify-between gap-2">
-            <button matButton type="button" (click)="generateBait()" [disabled]="generating()">
-              <mat-icon>auto_awesome</mat-icon>
-              Gerar isca com IA
-            </button>
+            @if (post().mode === 'PLATFORM') {
+              <button matButton type="button" (click)="generateBait()" [disabled]="generating()">
+                <mat-icon>auto_awesome</mat-icon>
+                Gerar isca com IA
+              </button>
+            } @else {
+              <span></span>
+            }
             <span class="text-xs text-gray-400 dark:text-gray-500">{{ text().length }}/2900</span>
           </div>
 
@@ -134,11 +145,28 @@ export class LinkedInShareDialog {
         this.checkingStatus.set(false);
       },
     });
-    // Texto inicial: título + resumo (a isca por IA é opcional).
+    // Texto inicial. Modelo flexível: o corpo inteiro (texto puro) vai para o LinkedIn.
     queueMicrotask(() => {
       const post = this.post();
-      this.text.set([post.title, post.summary ?? ''].filter(Boolean).join('\n\n'));
+      if (post.mode === 'FLEXIBLE') {
+        this.posts.getAdmin(post.id).subscribe({
+          next: (full) => this.text.set(this.plainText(full.body).slice(0, 2900)),
+          error: () => this.text.set([post.title, post.summary ?? ''].filter(Boolean).join('\n\n')),
+        });
+      } else {
+        this.text.set([post.title, post.summary ?? ''].filter(Boolean).join('\n\n'));
+      }
     });
+  }
+
+  /** Markdown → texto puro para o LinkedIn (sem #, *, links como [texto](url)). */
+  private plainText(markdown: string): string {
+    return markdown
+      .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+      .replace(/^#{1,6}\s+/gm, '')
+      .replace(/[*_`~>]/g, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
   }
 
   protected articleUrl(): string {
@@ -179,7 +207,9 @@ export class LinkedInShareDialog {
     }
     this.publishing.set(true);
     this.error.set(null);
-    this.social.shareOnLinkedIn(this.text().trim(), this.articleUrl(), this.post().id).subscribe({
+    // Modelo flexível compartilha o conteúdo inteiro sem link de retorno ao portal.
+    const url = this.post().mode === 'PLATFORM' ? this.articleUrl() : null;
+    this.social.shareOnLinkedIn(this.text().trim(), url, this.post().id).subscribe({
       next: (res) => {
         this.publishedId.set(res.postId);
         this.publishing.set(false);

@@ -21,6 +21,13 @@ export type PostType = 'ARTICLE' | 'TUTORIAL' | 'NOTE';
 /** Estado de publicação (RF02). SCHEDULED aguarda o horário de `scheduledAt`. */
 export type PostStatus = 'DRAFT' | 'SCHEDULED' | 'PUBLISHED';
 
+/**
+ * Modelo de publicação (Fase 2):
+ * - `PLATFORM`: clássico — vive no hub; LinkedIn = isca com link de volta ao portal;
+ * - `FLEXIBLE`: hub opcional (via status); LinkedIn = conteúdo inteiro, sem link de retorno.
+ */
+export type PostMode = 'PLATFORM' | 'FLEXIBLE';
+
 /** Filtros da listagem administrativa. */
 export interface PostFilters {
   status?: PostStatus;
@@ -35,6 +42,7 @@ export interface PostSummary {
   slug: string;
   type: PostType;
   status: PostStatus;
+  mode: PostMode;
   summary: string | null;
   bannerUrl: string | null;
   tags: string[];
@@ -50,6 +58,7 @@ export interface Post {
   slug: string;
   type: PostType;
   status: PostStatus;
+  mode: PostMode;
   summary: string | null;
   body: string;
   bannerUrl: string | null;
@@ -65,6 +74,7 @@ export interface PostRequest {
   title: string;
   type: PostType;
   status: PostStatus;
+  mode: PostMode;
   summary: string | null;
   body: string;
   slug?: string;

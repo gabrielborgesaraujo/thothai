@@ -6,6 +6,7 @@ import {
   AiSettingsRequest,
   CorrectionResponse,
   DraftResponse,
+  ImageResponse,
   ReviewResponse,
   SnippetResponse,
 } from './assistant.models';
@@ -15,8 +16,14 @@ import {
 export class AssistantService {
   private readonly api = inject(ApiService);
 
-  generateDraft(theme: string): Observable<DraftResponse> {
-    return this.api.post<DraftResponse>('/admin/assistant/draft', { theme });
+  /** `instructions` (opcional) é o prompt customizado do autor (modelo flexível). */
+  generateDraft(theme: string, instructions?: string): Observable<DraftResponse> {
+    return this.api.post<DraftResponse>('/admin/assistant/draft', { theme, instructions });
+  }
+
+  /** Gera uma imagem por IA e devolve a URL pública (já salva na galeria). */
+  generateImage(prompt: string): Observable<ImageResponse> {
+    return this.api.post<ImageResponse>('/admin/assistant/image', { prompt });
   }
 
   review(content: string): Observable<ReviewResponse> {

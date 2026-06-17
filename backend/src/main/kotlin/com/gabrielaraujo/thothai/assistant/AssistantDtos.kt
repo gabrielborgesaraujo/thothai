@@ -1,11 +1,15 @@
 package com.gabrielaraujo.thothai.assistant
 
 import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Size
 
 /** Geração de rascunho com IA + busca viva (RF04). */
 data class DraftRequest(
     @field:NotBlank
     val theme: String,
+    /** Instrução livre do usuário para guiar o estilo/foco do rascunho (modelo flexível). */
+    @field:Size(max = 2000)
+    val instructions: String? = null,
 )
 
 data class DraftResponse(
@@ -38,4 +42,17 @@ data class SnippetRequest(
 
 data class SnippetResponse(
     val text: String,
+)
+
+/** Geração de imagem por IA a partir de uma descrição (modelo flexível). */
+data class ImageRequest(
+    @field:NotBlank
+    @field:Size(max = 2000)
+    val prompt: String,
+)
+
+data class ImageResponse(
+    val url: String,
+    val width: Int?,
+    val height: Int?,
 )

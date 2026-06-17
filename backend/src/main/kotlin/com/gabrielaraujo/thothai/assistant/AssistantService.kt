@@ -15,11 +15,15 @@ internal class AssistantService(
     private val search: SearchClient,
     private val objectMapper: ObjectMapper,
 ) {
-    fun generateDraft(theme: String): DraftResponse {
+    fun generateDraft(
+        theme: String,
+        instructions: String? = null,
+    ): DraftResponse {
         val cleaned = theme.trim()
         if (cleaned.isBlank()) {
             throw InvalidRequestException("Informe um tema para o rascunho")
         }
+        val customPrompt = instructions?.trim()?.takeIf { it.isNotBlank() }
 
         // Busca best-effort: qualquer falha degrada para contexto vazio, sem quebrar o rascunho (RNF02).
         val results = runCatching { search.search(cleaned) }.getOrDefault(emptyList())
@@ -29,11 +33,15 @@ internal class AssistantService(
         val user =
             buildString {
                 append("Tema: ").append(cleaned).append("\n\n")
+                if (customPrompt != null) {
+                    append("Instruções do autor (siga-as, respeitando os limites e o formato de saída):\n")
+                    append(customPrompt).append("\n\n")
+                }
                 if (context.isNotBlank()) {
                     append("Contexto encontrado na web (use como base, cite quando relevante):\n")
                     append(context).append("\n\n")
                 }
-                append("Gere um rascunho técnico, no formato de saída especificado.")
+                append("Gere o rascunho seguindo o formato de saída especificado.")
             }
 
         val raw = llm.complete(DRAFT_SYSTEM, user, maxTokens = 4096)

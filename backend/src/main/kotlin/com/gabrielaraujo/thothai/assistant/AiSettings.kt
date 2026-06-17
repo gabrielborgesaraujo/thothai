@@ -27,4 +27,14 @@ class AiSettings(
     var baseUrl: String? = null,
     @Column(name = "tavily_api_key", length = 255)
     var tavilyApiKey: String? = null,
+    /** Geração de imagem por IA — configuração dedicada, independente do provedor de texto. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "image_provider", length = 32)
+    var imageProvider: ImageProvider? = null,
+    @Column(name = "image_api_key", length = 255)
+    var imageApiKey: String? = null,
+    @Column(name = "image_model", length = 128)
+    var imageModel: String? = null,
+    @Column(name = "image_base_url", length = 512)
+    var imageBaseUrl: String? = null,
 ) : AbstractTenantEntity()

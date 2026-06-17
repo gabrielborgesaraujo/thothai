@@ -65,6 +65,7 @@ internal class PostService(
                 slug = uniqueSlug(tenant, source),
                 type = request.type,
                 status = request.status,
+                mode = request.mode,
                 summary = request.summary,
                 body = request.body,
                 bannerUrl = request.bannerUrl?.takeIf { it.isNotBlank() },
@@ -92,6 +93,7 @@ internal class PostService(
         revisions.pruneOld(id, MAX_REVISIONS)
         post.title = request.title
         post.type = request.type
+        post.mode = request.mode
         post.summary = request.summary
         post.body = request.body
         post.bannerUrl = request.bannerUrl?.takeIf { it.isNotBlank() }

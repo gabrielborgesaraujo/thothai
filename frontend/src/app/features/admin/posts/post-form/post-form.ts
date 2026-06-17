@@ -19,6 +19,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { PostService } from '../../../../core/content/post.service';
 import {
+  PostMode,
   PostRequest,
   PostRevisionSummary,
   PostStatus,
@@ -97,12 +98,69 @@ type PickerTarget = 'banner' | 'body';
           <button
             matButton="tonal"
             type="button"
-            (click)="generateDraft(themeInput.value)"
+            (click)="generateDraft(themeInput.value, promptInput.value)"
             [disabled]="generating()"
           >
             <mat-icon>auto_awesome</mat-icon>
             Gerar rascunho
           </button>
+        </div>
+        <mat-form-field appearance="outline" class="w-full">
+          <mat-label>Instruções para a IA (opcional)</mat-label>
+          <textarea
+            matInput
+            #promptInput
+            rows="2"
+            placeholder="Ex.: tom informal, foco em iniciantes, evite jargão"
+          ></textarea>
+          <mat-hint>Prompt customizado: guia o estilo e o foco do rascunho.</mat-hint>
+        </mat-form-field>
+
+        <!-- Geração de imagem por IA (usa a configuração dedicada de imagem em Integrações). -->
+        <div class="mt-2">
+          <button matButton type="button" (click)="imagePromptOpen.set(!imagePromptOpen())">
+            <mat-icon>image</mat-icon>
+            {{ imagePromptOpen() ? 'Fechar geração de imagem' : 'Gerar imagem com IA' }}
+          </button>
+          @if (imagePromptOpen()) {
+            <div class="mt-2 flex flex-col gap-2">
+              <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Descrição da imagem</mat-label>
+                <textarea
+                  matInput
+                  #imagePrompt
+                  rows="2"
+                  placeholder="Ex.: ilustração minimalista de engrenagens conectadas, tons de índigo"
+                ></textarea>
+              </mat-form-field>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  matButton="tonal"
+                  type="button"
+                  (click)="generateImage(imagePrompt.value, false)"
+                  [disabled]="generatingImage()"
+                >
+                  <mat-icon>add_photo_alternate</mat-icon>
+                  Gerar e inserir no corpo
+                </button>
+                <button
+                  matButton
+                  type="button"
+                  (click)="generateImage(imagePrompt.value, true)"
+                  [disabled]="generatingImage()"
+                >
+                  <mat-icon>wallpaper</mat-icon>
+                  Gerar como banner
+                </button>
+              </div>
+              @if (generatingImage()) {
+                <mat-progress-bar mode="indeterminate" />
+              }
+              @if (imageError()) {
+                <p class="text-sm text-red-600 dark:text-red-400" role="alert">{{ imageError() }}</p>
+              }
+            </div>
+          }
         </div>
         @if (generating()) {
           <mat-progress-bar mode="indeterminate" />
@@ -113,6 +171,47 @@ type PickerTarget = 'banner' | 'body';
       </div>
 
       <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-3 pt-2">
+        <!-- Modelo de publicação: clássico (plataforma + isca) ou flexível (LinkedIn integral). -->
+        <fieldset class="grid gap-2 sm:grid-cols-2">
+          <legend class="mb-1 text-xs font-medium text-gray-500 dark:text-gray-400">
+            Modelo de publicação
+          </legend>
+          <label
+            class="flex cursor-pointer gap-3 rounded-xl border p-3 transition-colors"
+            [class]="
+              modeValue() === 'PLATFORM'
+                ? 'border-indigo-500 bg-indigo-50/60 dark:border-indigo-500 dark:bg-indigo-950/40'
+                : 'border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700'
+            "
+          >
+            <input type="radio" formControlName="mode" value="PLATFORM" class="mt-1 accent-indigo-600" />
+            <span>
+              <span class="block text-sm font-medium">Plataforma</span>
+              <span class="block text-xs text-gray-500 dark:text-gray-400">
+                Publica no seu hub. Ao compartilhar no LinkedIn, gera uma isca com link de volta ao
+                portal.
+              </span>
+            </span>
+          </label>
+          <label
+            class="flex cursor-pointer gap-3 rounded-xl border p-3 transition-colors"
+            [class]="
+              modeValue() === 'FLEXIBLE'
+                ? 'border-indigo-500 bg-indigo-50/60 dark:border-indigo-500 dark:bg-indigo-950/40'
+                : 'border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700'
+            "
+          >
+            <input type="radio" formControlName="mode" value="FLEXIBLE" class="mt-1 accent-indigo-600" />
+            <span>
+              <span class="block text-sm font-medium">Flexível</span>
+              <span class="block text-xs text-gray-500 dark:text-gray-400">
+                Hub opcional (veja o status). Ao compartilhar no LinkedIn, leva o conteúdo inteiro,
+                sem link de retorno.
+              </span>
+            </span>
+          </label>
+        </fieldset>
+
         <!-- Banner da publicação (capa do card em mosaico, hero do detalhe e og:image). -->
         <div>
           <p class="mb-1 text-xs font-medium text-gray-500 dark:text-gray-400">Banner</p>
@@ -173,6 +272,13 @@ type PickerTarget = 'banner' | 'body';
             </mat-select>
           </mat-form-field>
         </div>
+
+        @if (modeValue() === 'FLEXIBLE') {
+          <p class="-mt-1 text-xs text-gray-500 dark:text-gray-400">
+            No modelo flexível, <strong>Rascunho</strong> mantém o conteúdo fora do hub (só para o
+            LinkedIn); <strong>Publicado</strong> também o publica no seu hub.
+          </p>
+        }
 
         @if (statusValue() === 'SCHEDULED') {
           <mat-form-field appearance="outline">
@@ -260,13 +366,25 @@ type PickerTarget = 'banner' | 'body';
           <button
             matButton
             type="button"
-            (click)="generateSnippet()"
-            [disabled]="generatingSnippet()"
-            aria-label="Gerar isca para LinkedIn"
+            (click)="reviewSelection()"
+            [disabled]="reviewingSelection()"
+            aria-label="Revisar o trecho selecionado com IA"
           >
-            <mat-icon>share</mat-icon>
-            Isca p/ LinkedIn
+            <mat-icon>edit_note</mat-icon>
+            Revisar seleção
           </button>
+          @if (modeValue() === 'PLATFORM') {
+            <button
+              matButton
+              type="button"
+              (click)="generateSnippet()"
+              [disabled]="generatingSnippet()"
+              aria-label="Gerar isca para LinkedIn"
+            >
+              <mat-icon>share</mat-icon>
+              Isca p/ LinkedIn
+            </button>
+          }
         </div>
 
         @if (reviewing()) {
@@ -479,6 +597,12 @@ export class PostForm {
   protected readonly revisions = signal<PostRevisionSummary[] | null>(null);
   protected readonly correcting = signal(false);
   protected readonly correction = signal<string | null>(null);
+  /** Geração de imagem por IA (modelo flexível). */
+  protected readonly imagePromptOpen = signal(false);
+  protected readonly generatingImage = signal(false);
+  protected readonly imageError = signal<string | null>(null);
+  /** Revisão de um trecho selecionado por IA. */
+  protected readonly reviewingSelection = signal(false);
 
   private backupKey = 'thothai-draft:new';
   /** Snapshot do estado carregado: autosave só guarda o que DIFERE dele (evita falsos positivos). */
@@ -489,6 +613,7 @@ export class PostForm {
     slug: [''],
     type: ['ARTICLE' as PostType, Validators.required],
     status: ['DRAFT' as PostStatus, Validators.required],
+    mode: ['PLATFORM' as PostMode, Validators.required],
     scheduledAt: [''],
     summary: [''],
     body: ['', Validators.required],
@@ -502,6 +627,11 @@ export class PostForm {
   /** Espelha o status para alternar o campo de agendamento e o rótulo do botão. */
   protected readonly statusValue = toSignal(this.form.controls.status.valueChanges, {
     initialValue: 'DRAFT' as PostStatus,
+  });
+
+  /** Espelha o modelo de publicação para alternar a UI (hints, ações específicas). */
+  protected readonly modeValue = toSignal(this.form.controls.mode.valueChanges, {
+    initialValue: 'PLATFORM' as PostMode,
   });
 
   constructor() {
@@ -694,6 +824,7 @@ export class PostForm {
       title: raw.title,
       type: raw.type,
       status: raw.status,
+      mode: raw.mode,
       summary: raw.summary.trim() ? raw.summary : null,
       body: raw.body,
       slug: raw.slug.trim() || undefined,
@@ -761,14 +892,17 @@ export class PostForm {
 
   // --- IA (RF04/RF05) ---
 
-  /** RF04 — gera um rascunho a partir do tema (busca viva + IA) e preenche o formulário. */
-  protected generateDraft(theme: string): void {
+  /**
+   * RF04 — gera um rascunho a partir do tema (busca viva + IA) e preenche o formulário.
+   * `instructions` é o prompt customizado opcional do autor (modelo flexível).
+   */
+  protected generateDraft(theme: string, instructions?: string): void {
     if (!theme.trim() || this.generating()) {
       return;
     }
     this.generating.set(true);
     this.aiError.set(null);
-    this.assistant.generateDraft(theme).subscribe({
+    this.assistant.generateDraft(theme, instructions?.trim() || undefined).subscribe({
       next: (draft) => {
         this.form.patchValue({ title: draft.title, summary: draft.summary ?? '' });
         this.form.controls.body.setValue(draft.body);
@@ -831,6 +965,55 @@ export class PostForm {
     }
   }
 
+  /** Gera uma imagem por IA a partir da descrição e a insere no corpo (ou usa como banner). */
+  protected generateImage(prompt: string, asBanner: boolean): void {
+    if (!prompt.trim() || this.generatingImage()) {
+      return;
+    }
+    this.generatingImage.set(true);
+    this.imageError.set(null);
+    this.assistant.generateImage(prompt).subscribe({
+      next: (res) => {
+        if (asBanner) {
+          this.bannerUrl.set(res.url);
+        } else {
+          this.editor().insertImage(res.url, prompt.trim());
+        }
+        this.generatingImage.set(false);
+        this.imagePromptOpen.set(false);
+        this.toast.success(asBanner ? 'Imagem gerada e definida como banner.' : 'Imagem gerada e inserida.');
+      },
+      error: (err: { error?: { detail?: string } }) => {
+        this.imageError.set(err?.error?.detail ?? 'Não foi possível gerar a imagem (IA indisponível).');
+        this.generatingImage.set(false);
+      },
+    });
+  }
+
+  /** Revisa por IA apenas o trecho selecionado no editor e o substitui pelo texto corrigido. */
+  protected reviewSelection(): void {
+    if (this.reviewingSelection()) {
+      return;
+    }
+    const selected = this.editor().getSelectedText();
+    if (!selected) {
+      this.toast.error('Selecione um trecho do texto para revisar.');
+      return;
+    }
+    this.reviewingSelection.set(true);
+    this.assistant.applyReview(selected).subscribe({
+      next: (res) => {
+        this.editor().replaceSelection(res.text);
+        this.reviewingSelection.set(false);
+        this.toast.success('Trecho revisado pela IA.');
+      },
+      error: () => {
+        this.reviewingSelection.set(false);
+        this.toast.error('Não foi possível revisar o trecho (IA indisponível).');
+      },
+    });
+  }
+
   private loadPost(id: string): void {
     this.loading.set(true);
     this.postService.getAdmin(id).subscribe({
@@ -840,6 +1023,7 @@ export class PostForm {
           slug: post.slug,
           type: post.type,
           status: post.status,
+          mode: post.mode,
           scheduledAt: post.scheduledAt ? this.toLocalInput(post.scheduledAt) : '',
           summary: post.summary ?? '',
           body: post.body,

@@ -71,6 +71,23 @@ class AssistantServiceTest {
     }
 
     @Test
+    fun `instrucao do autor e injetada no prompt do rascunho`() {
+        var capturedUser = ""
+        val svc =
+            service(
+                llm = { _, user, _ ->
+                    capturedUser = user
+                    "TITULO: T\nRESUMO: R\nCONTEUDO:\nCorpo."
+                },
+            )
+
+        svc.generateDraft("kotlin", instructions = "Use tom informal e foco em iniciantes")
+
+        assertTrue(capturedUser.contains("Instruções do autor"))
+        assertTrue(capturedUser.contains("tom informal e foco em iniciantes"))
+    }
+
+    @Test
     fun `usa fallback quando o LLM nao retorna JSON`() {
         val svc = service(llm = { _, _, _ -> "texto cru sem json" })
 

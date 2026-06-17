@@ -14,11 +14,12 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api/admin/assistant")
 internal class AssistantController(
     private val assistantService: AssistantService,
+    private val imageGenerationService: ImageGenerationService,
 ) {
     @PostMapping("/draft")
     fun draft(
         @Valid @RequestBody request: DraftRequest,
-    ): DraftResponse = assistantService.generateDraft(request.theme)
+    ): DraftResponse = assistantService.generateDraft(request.theme, request.instructions)
 
     @PostMapping("/review")
     fun review(
@@ -34,4 +35,9 @@ internal class AssistantController(
     fun snippet(
         @RequestBody request: SnippetRequest,
     ): SnippetResponse = assistantService.generateSnippet(request.title, request.content)
+
+    @PostMapping("/image")
+    fun image(
+        @Valid @RequestBody request: ImageRequest,
+    ): ImageResponse = imageGenerationService.generate(request.prompt)
 }

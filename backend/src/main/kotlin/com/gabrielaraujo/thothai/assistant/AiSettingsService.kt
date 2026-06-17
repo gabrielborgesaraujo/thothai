@@ -25,6 +25,14 @@ internal class AiSettingsService(
         val baseUrl: String,
     )
 
+    /** Configuração efetiva da geração de imagem (config dedicada, sem fallback de ambiente). */
+    internal data class ResolvedImage(
+        val provider: ImageProvider,
+        val apiKey: String,
+        val model: String,
+        val baseUrl: String,
+    )
+
     @Transactional(readOnly = true)
     fun get(): AiSettingsResponse = toResponse(find())
 
@@ -44,6 +52,17 @@ internal class AiSettingsService(
         request.model?.let { settings.model = it.trim().ifBlank { null } }
         request.baseUrl?.let { settings.baseUrl = it.trim().trimEnd('/').ifBlank { null } }
         request.tavilyApiKey?.let { settings.tavilyApiKey = it.trim().ifBlank { null } }
+
+        // Geração de imagem (dedicada): trocar de provedor descarta chave/modelo/base URL anteriores.
+        if (request.imageProvider != null && request.imageProvider != settings.imageProvider) {
+            settings.imageProvider = request.imageProvider
+            settings.imageApiKey = null
+            settings.imageModel = null
+            settings.imageBaseUrl = null
+        }
+        request.imageApiKey?.let { settings.imageApiKey = it.trim().ifBlank { null } }
+        request.imageModel?.let { settings.imageModel = it.trim().ifBlank { null } }
+        request.imageBaseUrl?.let { settings.imageBaseUrl = it.trim().trimEnd('/').ifBlank { null } }
 
         val provider = settings.provider ?: AiProvider.ANTHROPIC
         if (provider.requiresBaseUrl && settings.baseUrl == null) {
@@ -68,6 +87,31 @@ internal class AiSettingsService(
     /** Chave efetiva do Tavily (banco > ambiente do sistema); em branco, a busca viva é desativada. */
     @Transactional(readOnly = true)
     fun resolveTavilyKey(): String = find()?.tavilyApiKey ?: envTavilyKey()
+
+    /**
+     * Configuração efetiva de geração de imagem. Sem provedor/chave dedicados, lança erro amigável
+     * (não há fallback de ambiente para imagem — é sempre trazida pelo publicador).
+     */
+    @Transactional(readOnly = true)
+    fun resolveImage(): ResolvedImage {
+        val settings = find()
+        val provider =
+            settings?.imageProvider
+                ?: throw InvalidRequestException(
+                    "Geração de imagem não configurada — escolha um provedor de imagem em Integrações",
+                )
+        val apiKey =
+            settings.imageApiKey?.takeIf { it.isNotBlank() }
+                ?: throw InvalidRequestException(
+                    "Informe a chave do provedor de imagem em Integrações",
+                )
+        return ResolvedImage(
+            provider = provider,
+            apiKey = apiKey,
+            model = settings.imageModel?.takeIf { it.isNotBlank() } ?: provider.defaultModel,
+            baseUrl = settings.imageBaseUrl?.takeIf { it.isNotBlank() } ?: provider.defaultBaseUrl,
+        )
+    }
 
     /** Fallback de ambiente do Tavily: só para o tenant do sistema (Fase 2). */
     private fun envTavilyKey(): String =
@@ -116,6 +160,19 @@ internal class AiSettingsService(
                 },
             tavilySource = source(tavilyCustom, envTavilyKey()),
             tavilyKeyHint = settings?.tavilyApiKey?.let(::keyHint),
+            imageProvider = settings?.imageProvider,
+            imageKeyHint = settings?.imageApiKey?.let(::keyHint),
+            imageModel = settings?.imageModel,
+            imageBaseUrl = settings?.imageBaseUrl,
+            imageProviders =
+                ImageProvider.entries.map {
+                    ImageProviderInfo(
+                        id = it,
+                        label = it.label,
+                        defaultModel = it.defaultModel,
+                        defaultBaseUrl = it.defaultBaseUrl,
+                    )
+                },
         )
     }
 

@@ -196,6 +196,20 @@ export class MarkdownEditor {
     this.editor?.chain().focus().setImage({ src: url, alt: alt ?? undefined }).run();
   }
 
+  /** Texto puro da seleção atual (vazio quando nada está selecionado) — para revisão por IA. */
+  getSelectedText(): string {
+    if (!this.editor) {
+      return '';
+    }
+    const { from, to } = this.editor.state.selection;
+    return this.editor.state.doc.textBetween(from, to, '\n').trim();
+  }
+
+  /** Substitui a seleção atual pelo texto informado (ex.: trecho revisado pela IA). */
+  replaceSelection(text: string): void {
+    this.editor?.chain().focus().insertContent(text).run();
+  }
+
   protected buttonClass(active: boolean): string {
     return (
       'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors disabled:opacity-40 ' +
