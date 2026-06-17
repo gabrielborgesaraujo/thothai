@@ -42,6 +42,13 @@ per-draft custom prompt, AI image generation with a **dedicated** provider/key i
 (`image_*` columns; OpenAI gpt-image or Gemini Imagen, stored to MinIO via the public
 `media.MediaImageStore`), and AI review of a selected excerpt.
 
+LinkedIn publishing uses the current **Posts API** (`POST /rest/posts`, headers `LinkedIn-Version`
+— hardcoded `LINKEDIN_API_VERSION` in `social.LinkedInApi`, bump if rejected — and
+`X-Restli-Protocol-Version: 2.0.0`); the created id comes back in the `x-restli-id` response
+header. The member token needs the "Share on LinkedIn" product (`w_member_social`). Share failures
+log the real status+body. The share text caps at LinkedIn's ~3000 chars; FLEXIBLE posts get an AI
+"adapt to LinkedIn" (`/api/admin/assistant/linkedin-format`) producing a native, within-limit post.
+
 ## Monorepo layout
 
 - [backend/](backend/) — Kotlin + Spring Boot (Spring Modulith) REST API, PostgreSQL, Flyway.
@@ -143,6 +150,17 @@ HTTP client (`OpenAiCompatibleChatClient`) routed per call by `RoutingLlmClient`
 settings take precedence over the `ANTHROPIC_API_KEY` / `TAVILY_API_KEY` env vars (fallback,
 Anthropic/Tavily only). Keys never leave the API in full — only a 4-char hint — and switching
 provider resets key/model/baseUrl. Changes apply without a restart.
+
+**Author memory (RAG)** teaches the AI each publisher's voice: a **dedicated** embeddings config in
+`ai_settings` (`embedding_*`; OpenAI/Gemini/OpenAI-compatible `/embeddings`) indexes their posts
+into `post_embeddings` (vector as JSON text). Indexing is **on-demand and incremental** (only
+new/changed posts, hashed) inside `AuthorMemoryService`, which reads post text via
+`ContentQueries.authorPostTexts()` (assistant→content, acyclic) — no events/async/pgvector. At each
+draft/snippet/LinkedIn-format the top-K most similar excerpts (cosine in-app, `cosineSimilarity` in
+`VectorMath.kt`) are injected as a style reference. Degrades to off when embeddings aren't
+configured; panel shows indexed/total + a reindex button (`/api/admin/assistant/memory`).
+Every draft/image generation is logged to `prompt_history` (favoritable, filterable at
+`/api/admin/assistant/prompts`).
 
 ## Running the full stack (Docker)
 

@@ -235,6 +235,14 @@ print_npm_instructions() {
       oferecer "Entrar com LinkedIn" e o vínculo de conta (confirmado por
       e-mail) em Painel → Conta. Exige o escopo de e-mail do produto OpenID
       Connect — por isso o reset por e-mail/SMTP abaixo também importa.
+    - Publicar no LinkedIn: usa a Posts API atual (/rest/posts) e exige o
+      produto "Share on LinkedIn" (escopo w_member_social) habilitado no app.
+      Se a publicação falhar, o motivo real aparece em '${COMPOSE[*]} logs
+      backend'; se for versão da API, ajuste LINKEDIN_API_VERSION em
+      social/LinkedInApi.kt.
+    - Memória do autor (IA): cada publicador pode configurar um provedor de
+      embeddings (OpenAI/Gemini/compatível) em Integrações para a IA escrever
+      no tom dele; sem isso, a memória fica desligada (não bloqueia nada).
     - Reset de senha e confirmação de vínculo do LinkedIn: sem SMTP no .env,
       o link sai apenas no log do backend (${COMPOSE[*]} logs backend).
 
